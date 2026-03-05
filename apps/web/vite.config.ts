@@ -4,5 +4,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "/cuvverapp/",
   plugins: [react()],
-  base: "/cuvverapp/",
+  server: {
+    host: true,
+    port: 5173
+  }
 });
