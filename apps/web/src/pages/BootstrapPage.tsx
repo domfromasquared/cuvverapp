@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
@@ -8,12 +8,43 @@ import { useAppStore } from "../state/appStore";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
 
+const FALLBACK_TIMEZONES = [
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Chicago",
+  "America/New_York",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "Europe/London",
+  "Europe/Paris",
+  "Asia/Tokyo",
+  "Australia/Sydney"
+];
+
+function getTimezoneOptions(): string[] {
+  const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+  if (typeof supportedValuesOf === "function") {
+    const timezones = supportedValuesOf("timeZone");
+    if (timezones.length > 0) return timezones;
+  }
+  return FALLBACK_TIMEZONES;
+}
+
+function getDefaultTimezone(options: string[]): string {
+  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return resolved && options.includes(resolved) ? resolved : "America/Los_Angeles";
+}
+
 export function BootstrapPage(): JSX.Element {
   const navigate = useNavigate();
   const { pushToast } = useUi();
   const { setProfile, setHousehold, setRole, setMembers } = useAppStore();
   const [needsHousehold, setNeedsHousehold] = useState(false);
   const [loading, setLoading] = useState(true);
+  const timezoneOptions = useMemo(() => getTimezoneOptions(), []);
+  const defaultTimezone = useMemo(() => getDefaultTimezone(timezoneOptions), [timezoneOptions]);
 
   useEffect(() => {
     let mounted = true;
@@ -89,14 +120,14 @@ export function BootstrapPage(): JSX.Element {
               event.preventDefault();
               const form = event.currentTarget;
               const nameInput = form.elements.namedItem("name") as HTMLInputElement;
-              const timezoneInput = form.elements.namedItem("timezone") as HTMLInputElement;
+              const timezoneInput = form.elements.namedItem("timezone") as HTMLSelectElement;
 
               if (!nameInput.value.trim()) return;
 
               try {
                 await createHousehold({
                   household_name: nameInput.value.trim(),
-                  timezone: timezoneInput.value.trim() || "America/Los_Angeles"
+                  timezone: timezoneInput.value || "America/Los_Angeles"
                 });
 
                 const households = await listMyHouseholds();
@@ -118,7 +149,13 @@ export function BootstrapPage(): JSX.Element {
             </div>
             <div className="form-row">
               <label htmlFor="household-timezone">Timezone</label>
-              <input id="household-timezone" className="input" name="timezone" defaultValue="America/Los_Angeles" />
+              <select id="household-timezone" className="select" name="timezone" defaultValue={defaultTimezone}>
+                {timezoneOptions.map((timezone) => (
+                  <option key={timezone} value={timezone}>
+                    {timezone}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button type="submit">Create household</Button>
           </form>
