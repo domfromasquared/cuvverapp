@@ -15,32 +15,33 @@ function assertNoError(error: unknown): void {
 }
 
 async function invokeWithAuth<T, TBody extends object = object>(name: string, body: TBody): Promise<T> {
-  const token = await getAccessToken();
-  if (!token) throw new Error("Authentication expired. Please sign in again.");
+  async function callOnce(): Promise<T> {
+    const token = await getAccessToken();
+    if (!token) throw new Error("Authentication expired. Please sign in again.");
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
-  if (!supabaseUrl || !anonKey) {
-    throw new Error("Missing Supabase environment variables.");
+    const { data, error } = await supabase.functions.invoke(name, {
+      body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // Extra safety for infrastructure that normalizes headers unexpectedly.
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    if (error) throw error;
+    return data as T;
   }
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(body)
-  });
-
-  const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
-  if (!response.ok) {
-    const message = payload?.error ?? payload?.message ?? `Function ${name} failed (${response.status})`;
-    throw new Error(message);
+  try {
+    return await callOnce();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Retry once after session refresh for stale/rotated access token scenarios.
+    if (/401|jwt|auth|authorization/i.test(message)) {
+      return await callOnce();
+    }
+    throw error;
   }
-
-  return payload as T;
 }
 
 export async function ensureProfile(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): Promise<UserProfile> {
