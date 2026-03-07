@@ -15,7 +15,13 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function getAccessToken(): Promise<string | null> {
   const session = await getSession();
-  return session?.access_token ?? null;
+  const accessToken = session?.access_token?.trim();
+  if (accessToken) return accessToken;
+
+  // Fallback for cases where storage has a refresh token but access token is stale/missing in memory.
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) throw error;
+  return data.session?.access_token?.trim() ?? null;
 }
 
 export function onAuthStateChanged(cb: (session: Session | null) => void): () => void {

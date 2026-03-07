@@ -16,15 +16,31 @@ function assertNoError(error: unknown): void {
 
 async function invokeWithAuth<T, TBody extends object = object>(name: string, body: TBody): Promise<T> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Not authenticated");
+  if (!token) throw new Error("Authentication expired. Please sign in again.");
 
-  const { data, error } = await supabase.functions.invoke(name, {
-    body,
-    headers: { Authorization: `Bearer ${token}` }
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("Missing Supabase environment variables.");
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(body)
   });
 
-  assertNoError(error);
-  return data as T;
+  const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+  if (!response.ok) {
+    const message = payload?.error ?? payload?.message ?? `Function ${name} failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return payload as T;
 }
 
 export async function ensureProfile(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): Promise<UserProfile> {
