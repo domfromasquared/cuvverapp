@@ -58,7 +58,9 @@ export function SettingsPage(): JSX.Element {
           onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
+            const householdName = (form.elements.namedItem("household_name") as HTMLInputElement).value.trim();
             const patch = {
+              ...(canAdmin ? { name: householdName || household.name } : {}),
               quiet_hours_start: (form.elements.namedItem("quiet_start") as HTMLInputElement).value || null,
               quiet_hours_end: (form.elements.namedItem("quiet_end") as HTMLInputElement).value || null,
               retention_policy_days: Number((form.elements.namedItem("retention") as HTMLSelectElement).value),
@@ -85,6 +87,18 @@ export function SettingsPage(): JSX.Element {
             }
           }}
         >
+          <div className="form-row">
+            <label htmlFor="household-name">Household name</label>
+            <input
+              id="household-name"
+              className="input"
+              name="household_name"
+              defaultValue={household.name}
+              disabled={!canAdmin}
+              required
+            />
+            {!canAdmin ? <p className="caption">Only owners/editors can rename the household.</p> : null}
+          </div>
           <div className="grid-2">
             <div className="form-row">
               <label htmlFor="quiet-start">Quiet hours start</label>
