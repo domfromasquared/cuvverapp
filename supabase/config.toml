@@ -29,7 +29,7 @@ enabled = true
 file_size_limit = "50MiB"
 
 [functions.create-household]
-verify_jwt = true
+verify_jwt = false
 
 [functions.invite-member]
 verify_jwt = true
