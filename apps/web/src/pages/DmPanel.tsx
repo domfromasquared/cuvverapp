@@ -78,7 +78,7 @@ export function DmPanel(): JSX.Element {
       </Card>
 
       <Card data-ui="dm-threads-card">
-        <h3 style={{ marginTop: 0 }}>Threads</h3>
+        <h3 className="title-reset">Threads</h3>
         {threads.length === 0 ? <p className="caption">No threads for this context yet.</p> : null}
         <div className="list" data-ui="dm-threads-list">
           {threads.map((thread) => (
@@ -96,12 +96,12 @@ export function DmPanel(): JSX.Element {
       </Card>
 
       <Card data-ui="dm-messages-card">
-        <h3 style={{ marginTop: 0 }}>Messages</h3>
+        <h3 className="title-reset">Messages</h3>
         <div className="list" data-ui="dm-messages-list">
           {messages.map((message) => (
             <article key={message.id} className="list-item" data-ui="dm-message-item">
-              <p style={{ margin: 0 }}>{message.body}</p>
-              <p className="caption" style={{ margin: 0 }}>{message.author_user_id}</p>
+              <p className="text-reset">{message.body}</p>
+              <p className="caption">{message.author_user_id}</p>
             </article>
           ))}
         </div>

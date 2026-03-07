@@ -19,11 +19,11 @@ export function DocumentsList({
       {debugBadge("DocumentsList", "src/components/documents/DocumentsList.tsx")}
       {documents.map((doc) => (
         <article className="list-item" key={doc.id} data-ui="module-documents-list-item">
-          <h3 style={{ margin: "0 0 4px" }}>{doc.title}</h3>
-          <p className="caption" style={{ marginTop: 0 }}>
+          <h3 className="title-tight">{doc.title}</h3>
+          <p className="caption">
             {doc.file_name} · {formatDateTime(doc.created_at)}
           </p>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div className="actions actions-spaced">
             <Button variant="ghost" onClick={() => onOpen(doc)}>
               Open
             </Button>

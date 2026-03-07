@@ -105,21 +105,21 @@ export function SettingsPage(): JSX.Element {
             </select>
           </div>
 
-          <label className="caption"><input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} /> Care Update notifications</label>
-          <label className="caption"><input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} /> Schedule notifications</label>
-          <label className="caption"><input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} /> PTO notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} /> Care Update notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} /> Schedule notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} /> PTO notifications</label>
 
           {canAdmin ? (
             <>
               <hr className="hr" />
-              <h3 style={{ marginBottom: 0 }}>Admin Controls</h3>
-              <label className="caption"><input type="checkbox" name="caregivers_can_post" defaultChecked={controls.caregivers_can_post_care_updates} /> Caregivers can post care updates</label>
-              <label className="caption"><input type="checkbox" name="caregivers_can_upload" defaultChecked={controls.caregivers_can_upload_attachments} /> Caregivers can upload attachments</label>
-              <label className="caption"><input type="checkbox" name="caregivers_can_comment" defaultChecked={controls.caregivers_can_comment} /> Caregivers can comment</label>
-              <label className="caption"><input type="checkbox" name="viewers_can_ack" defaultChecked={controls.viewers_can_acknowledge} /> Viewers can acknowledge</label>
-              <label className="caption"><input type="checkbox" name="viewers_can_comment" defaultChecked={controls.viewers_can_comment} /> Viewers can comment</label>
-              <label className="caption"><input type="checkbox" name="require_ack" defaultChecked={controls.require_ack_for_critical} /> Require acknowledgement for critical items</label>
-              <label className="caption"><input type="checkbox" name="dms_enabled" defaultChecked={controls.dms_enabled} /> Enable contextual DMs (scaffold)</label>
+              <h3 className="title-reset">Admin Controls</h3>
+              <label className="check-row"><input type="checkbox" name="caregivers_can_post" defaultChecked={controls.caregivers_can_post_care_updates} /> Caregivers can post care updates</label>
+              <label className="check-row"><input type="checkbox" name="caregivers_can_upload" defaultChecked={controls.caregivers_can_upload_attachments} /> Caregivers can upload attachments</label>
+              <label className="check-row"><input type="checkbox" name="caregivers_can_comment" defaultChecked={controls.caregivers_can_comment} /> Caregivers can comment</label>
+              <label className="check-row"><input type="checkbox" name="viewers_can_ack" defaultChecked={controls.viewers_can_acknowledge} /> Viewers can acknowledge</label>
+              <label className="check-row"><input type="checkbox" name="viewers_can_comment" defaultChecked={controls.viewers_can_comment} /> Viewers can comment</label>
+              <label className="check-row"><input type="checkbox" name="require_ack" defaultChecked={controls.require_ack_for_critical} /> Require acknowledgement for critical items</label>
+              <label className="check-row"><input type="checkbox" name="dms_enabled" defaultChecked={controls.dms_enabled} /> Enable contextual DMs (scaffold)</label>
             </>
           ) : null}
 
@@ -134,8 +134,8 @@ export function SettingsPage(): JSX.Element {
             const ownerGuard = role !== "owner" && member.role === "owner";
             return (
               <article className="list-item" key={member.user_id} data-ui="settings-member-item">
-                <p style={{ margin: 0 }}>{member.display_name ?? member.email ?? member.user_id}</p>
-                <p className="caption" style={{ margin: 0 }}>{member.email ?? member.user_id}</p>
+                <p className="text-reset">{member.display_name ?? member.email ?? member.user_id}</p>
+                <p className="caption">{member.email ?? member.user_id}</p>
                 {canAdmin ? (
                   <select
                     className="select"
@@ -166,7 +166,7 @@ export function SettingsPage(): JSX.Element {
                     <option value="viewer">viewer</option>
                   </select>
                 ) : (
-                  <p className="caption" style={{ margin: 0 }}>Role: {member.role}</p>
+                  <p className="caption">Role: {member.role}</p>
                 )}
               </article>
             );

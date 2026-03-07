@@ -47,7 +47,7 @@ export function PtoDetailPage(): JSX.Element {
       <p>
         Status: <span className={`badge ${item.status}`}>{item.status}</span>
       </p>
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <div className="actions">
         {canApprove && item.status === "pending" ? (
           <>
             <Button

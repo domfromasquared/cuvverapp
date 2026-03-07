@@ -101,11 +101,11 @@ export function PtoPage(): JSX.Element {
         <div className="list" data-ui="pto-requests-list">
           {items.map((item) => (
             <article className="list-item" key={item.id} data-ui="pto-request-item">
-              <h3 style={{ margin: "0 0 4px" }}>{item.start_date} to {item.end_date}</h3>
-              <p className="caption" style={{ margin: 0 }}>
+              <h3 className="title-tight">{item.start_date} to {item.end_date}</h3>
+              <p className="caption">
                 {item.type} · <span className={`badge ${item.status}`}>{item.status}</span>
               </p>
-              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <div className="actions actions-spaced">
                 <Link className="btn ghost" to={`/app/pto/${item.id}`}>
                   Open
                 </Link>

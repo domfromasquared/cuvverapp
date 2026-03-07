@@ -62,7 +62,7 @@ export function FeedDetailPanel(): JSX.Element {
       <Card data-ui="feed-detail-card">
         <h2 className="section-title">{item.title}</h2>
         <p>{item.body}</p>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div className="actions">
           {PermissionHelper.canAcknowledge(role, controls)
             ? (["seen", "thanks", "love", "got_it"] as const).map((kind) => (
                 <Button
@@ -90,11 +90,11 @@ export function FeedDetailPanel(): JSX.Element {
       </Card>
 
       <Card data-ui="feed-detail-attachments-card">
-        <h3 style={{ marginTop: 0 }}>Attachments</h3>
+        <h3 className="title-reset">Attachments</h3>
         <div className="list" data-ui="feed-detail-attachments-list">
           {attachments.map((attachment) => (
             <article className="list-item" key={attachment.id} data-ui="feed-detail-attachment-item">
-              <p style={{ marginTop: 0 }}>{attachment.storage_path.split("/").pop()}</p>
+              <p className="text-reset">{attachment.storage_path.split("/").pop()}</p>
               <a className="btn ghost" href={attachment.signed_url} target="_blank" rel="noreferrer">
                 Open attachment
               </a>
@@ -105,14 +105,12 @@ export function FeedDetailPanel(): JSX.Element {
       </Card>
 
       <Card data-ui="feed-detail-comments-card">
-        <h3 style={{ marginTop: 0 }}>Comments</h3>
+        <h3 className="title-reset">Comments</h3>
         <div className="list" data-ui="feed-detail-comments-list">
           {comments.map((comment) => (
             <article className="list-item" key={comment.id} data-ui="feed-detail-comment-item">
-              <p style={{ margin: 0 }}>{comment.body}</p>
-              <p className="caption" style={{ margin: 0 }}>
-                {comment.author_user_id}
-              </p>
+              <p className="text-reset">{comment.body}</p>
+              <p className="caption">{comment.author_user_id}</p>
             </article>
           ))}
         </div>

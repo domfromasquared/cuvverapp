@@ -6,13 +6,13 @@ export function SeenByDrawer({ receipts }: { receipts: ReadReceipt[] }): JSX.Ele
   return (
     <section className="card" data-ui="module-seen-by-drawer">
       {debugBadge("SeenByDrawer", "src/components/feed/SeenByDrawer.tsx")}
-      <h3 style={{ marginTop: 0 }}>Seen by</h3>
+      <h3 className="title-reset">Seen by</h3>
       {receipts.length === 0 ? <p className="caption">No read receipts yet.</p> : null}
       <div className="list">
         {receipts.map((receipt) => (
           <div key={receipt.id} className="list-item">
-            <p style={{ margin: 0 }}>{receipt.user_id}</p>
-            <p className="caption" style={{ margin: 0 }}>
+            <p className="text-reset">{receipt.user_id}</p>
+            <p className="caption">
               {formatDateTime(receipt.seen_at)}
             </p>
           </div>

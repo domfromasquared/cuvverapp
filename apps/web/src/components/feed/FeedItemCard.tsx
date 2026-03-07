@@ -21,9 +21,9 @@ export function FeedItemCard({
       <p className="kicker">
         {titleCase(item.type)} · {formatDateTime(item.created_at)}
       </p>
-      <h3 style={{ margin: "6px 0" }}>{item.title}</h3>
-      {item.body ? <p style={{ marginTop: 0 }}>{item.body}</p> : null}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <h3 className="title-tight">{item.title}</h3>
+      {item.body ? <p className="text-reset">{item.body}</p> : null}
+      <div className="actions actions-spaced">
         <Button variant="ghost" onClick={() => onOpen(item)}>
           Open
         </Button>

@@ -49,7 +49,7 @@ export function FeedPage(): JSX.Element {
 
       {canPostCareUpdate ? (
         <Card data-ui="feed-compose-card">
-          <h3 style={{ marginTop: 0 }}>Create Care Update</h3>
+          <h3 className="title-reset">Create Care Update</h3>
           <form
             className="stack"
             data-ui="feed-compose-form"
@@ -120,7 +120,7 @@ export function FeedPage(): JSX.Element {
                 <input id="feed-files" name="files" className="input" type="file" accept="image/*" multiple disabled={!canUploadAttachment} />
               </div>
             </div>
-            <label className="caption">
+            <label className="check-row">
               <input name="is_critical" type="checkbox" /> Mark as critical
             </label>
             <Button type="submit">Post Care Update</Button>
@@ -130,7 +130,7 @@ export function FeedPage(): JSX.Element {
 
       {canPin ? (
         <Card data-ui="feed-pinned-controls-card">
-          <h3 style={{ marginTop: 0 }}>Pinned content controls</h3>
+          <h3 className="title-reset">Pinned content controls</h3>
           <form
             className="stack"
             data-ui="feed-coverage-brief-form"
@@ -188,7 +188,7 @@ export function FeedPage(): JSX.Element {
               <label htmlFor="protocol-body">Protocol body</label>
               <textarea id="protocol-body" name="protocol_body" className="textarea" />
             </div>
-            <label className="caption">
+            <label className="check-row">
               <input name="protocol_critical" type="checkbox" defaultChecked /> Critical protocol
             </label>
             <Button type="submit" variant="ghost">Create protocol</Button>

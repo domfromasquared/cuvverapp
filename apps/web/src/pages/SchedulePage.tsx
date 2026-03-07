@@ -125,7 +125,7 @@ export function SchedulePage(): JSX.Element {
             <div className="list" data-ui="schedule-agenda-day-list">
               {dayShifts.map((shift) => (
                 <div key={shift.id} className="list-item" data-ui="schedule-agenda-item">
-                  <h3 style={{ marginTop: 0 }}>{shift.title}</h3>
+                  <h3 className="title-tight">{shift.title}</h3>
                   <p className="caption">{formatDateTime(shift.start_datetime)} - {formatDateTime(shift.end_datetime)}</p>
                   <Link className="btn ghost" to={`/app/shift/${shift.id}`}>
                     Open shift
@@ -142,9 +142,9 @@ export function SchedulePage(): JSX.Element {
         <div className="list" data-ui="schedule-time-clock-list">
           {timeEntries.map((entry) => (
             <div key={entry.id} className="list-item" data-ui="schedule-time-entry-item">
-              <p style={{ margin: 0 }}>Shift: {entry.shift_id ?? "Unlinked"}</p>
-              <p className="caption" style={{ margin: 0 }}>Status: {entry.status}</p>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <p className="text-reset">Shift: {entry.shift_id ?? "Unlinked"}</p>
+              <p className="caption">Status: {entry.status}</p>
+              <div className="actions">
                 {entry.status === "open" && entry.user_id === profile.id ? (
                   <Button variant="secondary" onClick={async () => {
                     await clockOut(entry.id);

@@ -30,10 +30,10 @@ export function AuthPage(): JSX.Element {
     <div className="app page stack" data-ui="page-auth">
       {debugBadge("AuthPage", "src/pages/AuthPage.tsx")}
       <Card data-ui="auth-signin-card">
-        <h1 style={{ margin: 0 }}>Cuvver</h1>
-        <p style={{ marginTop: "6px" }}>You&apos;re covered.</p>
+        <h1 className="auth-hero-title">Cuvver</h1>
+        <p className="auth-hero-subtitle">You&apos;re covered.</p>
         <hr className="hr" />
-        <img src="/cuvverapp_logo.png" alt="Cuvver logo" className="brand-logo" />
+        <img src={`${import.meta.env.BASE_URL}cuvverapp_logo.png`} alt="Cuvver logo" className="brand-logo" />
         <form
           className="stack"
           data-ui="auth-signin-form"

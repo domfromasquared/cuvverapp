@@ -82,7 +82,7 @@ export function ShiftDetailPage(): JSX.Element {
           <label htmlFor="detail-notes">Notes</label>
           <textarea id="detail-notes" name="notes" className="textarea" defaultValue={shift.notes ?? ""} />
         </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div className="actions">
           <Button type="submit">Save</Button>
           <Link className="btn ghost" to={`/app/dm?context_type=shift&context_id=${shift.id}`}>
             Message about this shift
