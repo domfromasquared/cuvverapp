@@ -22,9 +22,7 @@ async function invokeWithAuth<T, TBody extends object = object>(name: string, bo
     const { data, error } = await supabase.functions.invoke(name, {
       body,
       headers: {
-        Authorization: `Bearer ${token}`,
-        // Extra safety for infrastructure that normalizes headers unexpectedly.
-        authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`
       }
     });
 
