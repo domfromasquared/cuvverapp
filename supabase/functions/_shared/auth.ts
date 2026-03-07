@@ -17,28 +17,37 @@ export async function getAuthContext(req: Request): Promise<AuthContext | Respon
   if (!authHeader.startsWith("Bearer ")) {
     return jsonResponse({ error: "Missing Authorization Bearer token" }, 401);
   }
+  const accessToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!accessToken) {
+    return jsonResponse({ error: "Missing access token" }, 401);
+  }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!supabaseUrl || !anonKey || !serviceKey) {
+  if (!supabaseUrl || !serviceKey) {
     return jsonResponse({ error: "Missing environment variables" }, 500);
   }
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  if (userError || !userData.user) {
-    return jsonResponse({ error: userError?.message ?? "Unauthorized" }, 401);
-  }
+  const anonKey = req.headers.get("apikey")?.trim() || Deno.env.get("SUPABASE_ANON_KEY")?.trim() || "";
 
   const adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+
+  const userClient = anonKey
+    ? createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      })
+    : adminClient;
+
+  const { data: userData, error: userError } = anonKey
+    ? await userClient.auth.getUser()
+    : await adminClient.auth.getUser(accessToken);
+  if (userError || !userData.user) {
+    return jsonResponse({ error: userError?.message ?? "Unauthorized" }, 401);
+  }
 
   return {
     authHeader,
