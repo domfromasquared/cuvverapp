@@ -6,7 +6,6 @@ import { DocumentsList } from "../components/documents/DocumentsList";
 import { UploadDocumentForm } from "../components/documents/UploadDocumentForm";
 import { useAppStore } from "../state/appStore";
 import { PermissionHelper } from "../permissions/permissionHelper";
-import { signOut } from "../auth/authService";
 import { listDocuments, uploadDocument, removeDocument, getDocumentSignedUrl } from "../services/documentsApi";
 import { changeRole, getHouseholdMembers, inviteMember, updateHousehold } from "../services/householdApi";
 import type { DocumentRecord, HouseholdMember, Role } from "../types/domain";
@@ -254,17 +253,6 @@ export function SettingsPage(): JSX.Element {
         ) : null}
       </Card>
 
-      <Card data-ui="settings-session-card">
-        <Button
-          variant="ghost"
-          onClick={async () => {
-            await signOut();
-            window.location.hash = "#/auth";
-          }}
-        >
-          Logout
-        </Button>
-      </Card>
     </div>
   );
 }

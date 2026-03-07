@@ -1,5 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { BottomTabs } from "./BottomTabs";
+import { Button } from "../common/Button";
+import { signOut } from "../../auth/authService";
 import { debugBadge } from "../../dev/uiDebug";
 
 export function AppShell({ children, householdName, role }: PropsWithChildren<{ householdName?: string; role?: string | null }>): JSX.Element {
@@ -7,9 +9,25 @@ export function AppShell({ children, householdName, role }: PropsWithChildren<{ 
     <div className="app" data-ui="layout-app-shell">
       {debugBadge("AppShell", "src/components/layout/AppShell.tsx")}
       <header className="header" data-ui="layout-app-shell-header">
-        <p className="kicker">{role ?? "Household"}</p>
-        <h1 className="header-title">{householdName ?? "Cuvver"}</h1>
-        <p className="header-subtitle">You&apos;re covered.</p>
+        <div className="header-row">
+          <div className="header-copy">
+            <p className="kicker">{role ?? "Household"}</p>
+            <h1 className="header-title">{householdName ?? "Cuvver"}</h1>
+            <p className="header-subtitle">You&apos;re covered.</p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              try {
+                await signOut();
+              } finally {
+                window.location.hash = "#/auth";
+              }
+            }}
+          >
+            Logout
+          </Button>
+        </div>
       </header>
       <main className="page stack" data-ui="layout-app-shell-main">{children}</main>
       <BottomTabs />

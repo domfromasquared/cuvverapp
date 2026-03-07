@@ -39,81 +39,96 @@ export function SchedulePage(): JSX.Element {
 
   if (!household || !profile) return <div />;
 
+  const canManageSchedule = PermissionHelper.canManageSchedule(role);
+  const canTrackTime = PermissionHelper.canTrackTime(role);
+  const canApproveTimeEntries = PermissionHelper.canApproveTimeEntries(role);
+  const visibleTimeEntries = canApproveTimeEntries ? timeEntries : timeEntries.filter((entry) => entry.user_id === profile.id);
+  const availableClockInShift = shifts.find((shift) => shift.caregiver_user_id === null || shift.caregiver_user_id === profile.id) ?? null;
+
   return (
     <div className="stack" data-ui="page-schedule">
       {debugBadge("SchedulePage", "src/pages/SchedulePage.tsx")}
       <Card data-ui="schedule-create-card">
         <h2 className="section-title">Schedule</h2>
-        <p className="caption">One-off and recurring shifts with feed transparency.</p>
-        <form
-          className="stack"
-          data-ui="schedule-create-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const title = (form.elements.namedItem("title") as HTMLInputElement).value.trim();
-            const start = (form.elements.namedItem("start") as HTMLInputElement).value;
-            const end = (form.elements.namedItem("end") as HTMLInputElement).value;
-            const recurrence = (form.elements.namedItem("recurrence") as HTMLInputElement).value.trim();
-            const notes = (form.elements.namedItem("notes") as HTMLTextAreaElement).value.trim();
+        <p className="caption">{canManageSchedule ? "One-off and recurring shifts with feed transparency." : "View assigned and upcoming shifts."}</p>
+        {canManageSchedule ? (
+          <form
+            className="stack"
+            data-ui="schedule-create-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!canManageSchedule) {
+                pushToast("Only owners and editors can create shifts.");
+                return;
+              }
 
-            if (!title || !isValidRange(start, end)) {
-              pushToast("Please provide title and valid times.");
-              return;
-            }
+              const form = event.currentTarget;
+              const title = (form.elements.namedItem("title") as HTMLInputElement).value.trim();
+              const start = (form.elements.namedItem("start") as HTMLInputElement).value;
+              const end = (form.elements.namedItem("end") as HTMLInputElement).value;
+              const recurrence = (form.elements.namedItem("recurrence") as HTMLInputElement).value.trim();
+              const notes = (form.elements.namedItem("notes") as HTMLTextAreaElement).value.trim();
 
-            try {
-              const shift = await createShift({
-                household_id: household.id,
-                caregiver_user_id: profile.id,
-                title,
-                start_datetime: new Date(start).toISOString(),
-                end_datetime: new Date(end).toISOString(),
-                recurrence_rule: recurrence || null,
-                notes: notes || null
-              });
+              if (!title || !isValidRange(start, end)) {
+                pushToast("Please provide title and valid times.");
+                return;
+              }
 
-              await createSystemEvent({
-                household_id: household.id,
-                author_user_id: profile.id,
-                title: "Schedule changed",
-                body: `Shift created: ${shift.title}`,
-                shift_id: shift.id,
-                is_critical: true
-              });
+              try {
+                const shift = await createShift({
+                  household_id: household.id,
+                  caregiver_user_id: null,
+                  title,
+                  start_datetime: new Date(start).toISOString(),
+                  end_datetime: new Date(end).toISOString(),
+                  recurrence_rule: recurrence || null,
+                  notes: notes || null
+                });
 
-              setShifts(await listShifts(household.id));
-              pushToast("Shift created.");
-              form.reset();
-            } catch (error) {
-              pushToast(error instanceof Error ? error.message : "Unable to create shift.");
-            }
-          }}
-        >
-          <div className="form-row">
-            <label htmlFor="shift-title">Title</label>
-            <input id="shift-title" name="title" className="input" required />
-          </div>
-          <div className="grid-2">
+                await createSystemEvent({
+                  household_id: household.id,
+                  author_user_id: profile.id,
+                  title: "Schedule changed",
+                  body: `Shift created: ${shift.title}`,
+                  shift_id: shift.id,
+                  is_critical: true
+                });
+
+                setShifts(await listShifts(household.id));
+                pushToast("Shift created.");
+                form.reset();
+              } catch (error) {
+                pushToast(error instanceof Error ? error.message : "Unable to create shift.");
+              }
+            }}
+          >
             <div className="form-row">
-              <label htmlFor="shift-start">Start</label>
-              <input id="shift-start" name="start" type="datetime-local" className="input" required />
+              <label htmlFor="shift-title">Title</label>
+              <input id="shift-title" name="title" className="input" required />
+            </div>
+            <div className="grid-2">
+              <div className="form-row">
+                <label htmlFor="shift-start">Start</label>
+                <input id="shift-start" name="start" type="datetime-local" className="input" required />
+              </div>
+              <div className="form-row">
+                <label htmlFor="shift-end">End</label>
+                <input id="shift-end" name="end" type="datetime-local" className="input" required />
+              </div>
             </div>
             <div className="form-row">
-              <label htmlFor="shift-end">End</label>
-              <input id="shift-end" name="end" type="datetime-local" className="input" required />
+              <label htmlFor="shift-recurrence">Recurrence rule</label>
+              <input id="shift-recurrence" name="recurrence" className="input" placeholder="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" />
             </div>
-          </div>
-          <div className="form-row">
-            <label htmlFor="shift-recurrence">Recurrence rule</label>
-            <input id="shift-recurrence" name="recurrence" className="input" placeholder="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" />
-          </div>
-          <div className="form-row">
-            <label htmlFor="shift-notes">Notes</label>
-            <textarea id="shift-notes" name="notes" className="textarea" />
-          </div>
-          <Button type="submit">Create shift</Button>
-        </form>
+            <div className="form-row">
+              <label htmlFor="shift-notes">Notes</label>
+              <textarea id="shift-notes" name="notes" className="textarea" />
+            </div>
+            <Button type="submit">Create shift</Button>
+          </form>
+        ) : (
+          <p className="caption">Owners and editors manage shift creation and assignment.</p>
+        )}
       </Card>
 
       <section className="stack" data-ui="schedule-agenda-section">
@@ -137,44 +152,49 @@ export function SchedulePage(): JSX.Element {
         ))}
       </section>
 
-      <Card data-ui="schedule-time-clock-card">
-        <h2 className="section-title">Time clock</h2>
-        <div className="list" data-ui="schedule-time-clock-list">
-          {timeEntries.map((entry) => (
-            <div key={entry.id} className="list-item" data-ui="schedule-time-entry-item">
-              <p className="text-reset">Shift: {entry.shift_id ?? "Unlinked"}</p>
-              <p className="caption">Status: {entry.status}</p>
-              <div className="actions">
-                {entry.status === "open" && entry.user_id === profile.id ? (
-                  <Button variant="secondary" onClick={async () => {
-                    await clockOut(entry.id);
-                    setTimeEntries(await listTimeEntries(household.id));
-                  }}>Clock out</Button>
-                ) : null}
-                {entry.status === "submitted" && PermissionHelper.canApprovePto(role) ? (
-                  <Button variant="ghost" onClick={async () => {
-                    await approveTimeEntry(entry.id);
-                    setTimeEntries(await listTimeEntries(household.id));
-                  }}>Approve</Button>
-                ) : null}
+      {canTrackTime || canApproveTimeEntries ? (
+        <Card data-ui="schedule-time-clock-card">
+          <h2 className="section-title">Time clock</h2>
+          <div className="list" data-ui="schedule-time-clock-list">
+            {visibleTimeEntries.map((entry) => (
+              <div key={entry.id} className="list-item" data-ui="schedule-time-entry-item">
+                <p className="text-reset">Shift: {entry.shift_id ?? "Unlinked"}</p>
+                <p className="caption">Status: {entry.status}</p>
+                <div className="actions">
+                  {canTrackTime && entry.status === "open" && entry.user_id === profile.id ? (
+                    <Button variant="secondary" onClick={async () => {
+                      await clockOut(entry.id);
+                      setTimeEntries(await listTimeEntries(household.id));
+                    }}>Clock out</Button>
+                  ) : null}
+                  {canApproveTimeEntries && entry.status === "submitted" ? (
+                    <Button variant="ghost" onClick={async () => {
+                      await approveTimeEntry(entry.id);
+                      setTimeEntries(await listTimeEntries(household.id));
+                    }}>Approve</Button>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              if (shifts.length === 0) {
-                pushToast("Create a shift first.");
-                return;
-              }
-              await clockIn(household.id, shifts[0].id, profile.id);
-              setTimeEntries(await listTimeEntries(household.id));
-            }}
-          >
-            Clock in (first shift)
-          </Button>
-        </div>
-      </Card>
+            ))}
+            {visibleTimeEntries.length === 0 ? <p className="caption">No time entries yet.</p> : null}
+            {canTrackTime ? (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  if (!availableClockInShift) {
+                    pushToast("No shift assigned to you for clock-in.");
+                    return;
+                  }
+                  await clockIn(household.id, availableClockInShift.id, profile.id);
+                  setTimeEntries(await listTimeEntries(household.id));
+                }}
+              >
+                Clock in
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

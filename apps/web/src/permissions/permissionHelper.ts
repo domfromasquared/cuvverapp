@@ -47,6 +47,18 @@ export const PermissionHelper = {
   canApprovePto(role: Role | null): boolean {
     return isAdmin(role);
   },
+  canManageSchedule(role: Role | null): boolean {
+    return isAdmin(role);
+  },
+  canEditShift(role: Role | null): boolean {
+    return isAdmin(role);
+  },
+  canTrackTime(role: Role | null): boolean {
+    return role === "caregiver";
+  },
+  canApproveTimeEntries(role: Role | null): boolean {
+    return isAdmin(role);
+  },
   canOpenDm(role: Role | null, controls: AdminControls | null): boolean {
     if (!toggle(controls, "dms_enabled", false)) return false;
     return role === "owner" || role === "editor" || role === "caregiver";

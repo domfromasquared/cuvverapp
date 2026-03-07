@@ -19,6 +19,17 @@
   padding: var(--space-4) var(--space-5);
 }
 
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.header-copy {
+  min-width: 0;
+}
+
 .header-title {
   margin: var(--space-1) 0 0;
   font-size: var(--h1);
@@ -358,7 +369,7 @@
 }
 
 .brand-logo {
-  width: 88px;
+  width: 176px;
   height: auto;
   display: block;
   margin: 0 auto var(--space-3);

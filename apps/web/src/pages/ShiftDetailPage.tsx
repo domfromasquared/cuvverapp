@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { useAppStore } from "../state/appStore";
+import { PermissionHelper } from "../permissions/permissionHelper";
 import { getShift, updateShift } from "../services/scheduleApi";
 import type { Shift } from "../types/domain";
 import { toInputDateTime } from "../utils/dates";
@@ -11,7 +12,7 @@ import { debugBadge } from "../dev/uiDebug";
 
 export function ShiftDetailPage(): JSX.Element {
   const { shiftId } = useParams();
-  const { household } = useAppStore();
+  const { household, role } = useAppStore();
   const { pushToast } = useUi();
   const [shift, setShift] = useState<Shift | null>(null);
 
@@ -29,15 +30,23 @@ export function ShiftDetailPage(): JSX.Element {
     );
   }
 
+  const canEditShift = PermissionHelper.canEditShift(role);
+
   return (
     <Card data-ui="page-shift-detail">
       {debugBadge("ShiftDetailPage", "src/pages/ShiftDetailPage.tsx")}
       <h2 className="section-title">Shift detail</h2>
+      {!canEditShift ? <p className="caption">Only owners and editors can edit shift details.</p> : null}
       <form
         className="stack"
         data-ui="shift-detail-form"
         onSubmit={async (event) => {
           event.preventDefault();
+          if (!canEditShift) {
+            pushToast("Only owners and editors can edit shifts.");
+            return;
+          }
+
           const form = event.currentTarget;
           const title = (form.elements.namedItem("title") as HTMLInputElement).value.trim();
           const start = (form.elements.namedItem("start") as HTMLInputElement).value;
@@ -62,28 +71,28 @@ export function ShiftDetailPage(): JSX.Element {
       >
         <div className="form-row">
           <label htmlFor="detail-title">Title</label>
-          <input id="detail-title" name="title" className="input" defaultValue={shift.title} />
+          <input id="detail-title" name="title" className="input" defaultValue={shift.title} disabled={!canEditShift} />
         </div>
         <div className="grid-2">
           <div className="form-row">
             <label htmlFor="detail-start">Start</label>
-            <input id="detail-start" name="start" type="datetime-local" className="input" defaultValue={toInputDateTime(shift.start_datetime)} />
+            <input id="detail-start" name="start" type="datetime-local" className="input" defaultValue={toInputDateTime(shift.start_datetime)} disabled={!canEditShift} />
           </div>
           <div className="form-row">
             <label htmlFor="detail-end">End</label>
-            <input id="detail-end" name="end" type="datetime-local" className="input" defaultValue={toInputDateTime(shift.end_datetime)} />
+            <input id="detail-end" name="end" type="datetime-local" className="input" defaultValue={toInputDateTime(shift.end_datetime)} disabled={!canEditShift} />
           </div>
         </div>
         <div className="form-row">
           <label htmlFor="detail-recurrence">Recurrence rule</label>
-          <input id="detail-recurrence" name="recurrence" className="input" defaultValue={shift.recurrence_rule ?? ""} />
+          <input id="detail-recurrence" name="recurrence" className="input" defaultValue={shift.recurrence_rule ?? ""} disabled={!canEditShift} />
         </div>
         <div className="form-row">
           <label htmlFor="detail-notes">Notes</label>
-          <textarea id="detail-notes" name="notes" className="textarea" defaultValue={shift.notes ?? ""} />
+          <textarea id="detail-notes" name="notes" className="textarea" defaultValue={shift.notes ?? ""} disabled={!canEditShift} />
         </div>
         <div className="actions">
-          <Button type="submit">Save</Button>
+          {canEditShift ? <Button type="submit">Save</Button> : null}
           <Link className="btn ghost" to={`/app/dm?context_type=shift&context_id=${shift.id}`}>
             Message about this shift
           </Link>
