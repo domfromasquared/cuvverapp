@@ -27,7 +27,10 @@ export async function signInWithGoogle(): Promise<void> {
     provider: "google",
     options: {
       // Keep OAuth callback away from hash routes; app root redirects to bootstrap.
-      redirectTo
+      redirectTo,
+      queryParams: {
+        prompt: "select_account"
+      }
     }
   });
   if (error) throw error;
