@@ -22,11 +22,12 @@ export async function signOut(): Promise<void> {
 }
 
 export async function signInWithGoogle(): Promise<void> {
+  const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       // Keep OAuth callback away from hash routes; app root redirects to bootstrap.
-      redirectTo: `${window.location.origin}/`
+      redirectTo
     }
   });
   if (error) throw error;

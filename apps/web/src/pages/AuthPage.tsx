@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
+import { GoogleAuthButton } from "../components/common/GoogleAuthButton";
 import { isEmail } from "../utils/validation";
 import { signIn, signInWithGoogle, signUp } from "../auth/authService";
 import { useUi } from "../app/providers";
@@ -68,8 +69,8 @@ export function AuthPage(): JSX.Element {
           </div>
           <Button type="submit">Sign in</Button>
         </form>
-        <Button
-          variant="ghost"
+        <GoogleAuthButton
+          mode="signin"
           data-ui="auth-signin-google-button"
           onClick={async () => {
             try {
@@ -78,9 +79,7 @@ export function AuthPage(): JSX.Element {
               pushToast(error instanceof Error ? error.message : "Google sign-in failed.");
             }
           }}
-        >
-          Continue with Google
-        </Button>
+        />
       </Card>
 
       <Card data-ui="auth-signup-card">
@@ -126,8 +125,8 @@ export function AuthPage(): JSX.Element {
             Create account
           </Button>
         </form>
-        <Button
-          variant="ghost"
+        <GoogleAuthButton
+          mode="signup"
           data-ui="auth-signup-google-button"
           onClick={async () => {
             try {
@@ -136,9 +135,7 @@ export function AuthPage(): JSX.Element {
               pushToast(error instanceof Error ? error.message : "Google sign-up failed.");
             }
           }}
-        >
-          Sign up with Google
-        </Button>
+        />
       </Card>
     </div>
   );
