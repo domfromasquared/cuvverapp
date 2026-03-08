@@ -3,6 +3,7 @@ import { useAppStore } from "../state/appStore";
 import { AppShell } from "../components/layout/AppShell";
 import { BootstrapPage } from "../pages/BootstrapPage";
 import { AuthPage } from "../pages/AuthPage";
+import { HomePage } from "../pages/HomePage";
 import { SchedulePage } from "../pages/SchedulePage";
 import { FeedPage } from "../pages/FeedPage";
 import { PtoPage } from "../pages/PtoPage";
@@ -34,6 +35,8 @@ export const router = createHashRouter([
     path: "/app",
     element: <AppLayout />,
     children: [
+      { path: "", element: <Navigate to="/app/home" replace /> },
+      { path: "home", element: <HomePage /> },
       { path: "schedule", element: <SchedulePage /> },
       { path: "shift/:shiftId", element: <ShiftDetailPage /> },
       { path: "feed", element: <FeedPage /> },

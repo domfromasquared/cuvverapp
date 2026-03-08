@@ -8,22 +8,30 @@ export function FeedItemCard({
   item,
   onOpen,
   onPinToggle,
-  canPin
+  canPin,
+  authorLabel
 }: {
   item: FeedItem;
   onOpen: (item: FeedItem) => void;
   onPinToggle: (item: FeedItem) => void;
   canPin: boolean;
+  authorLabel?: string;
 }): JSX.Element {
   return (
-    <article className="list-item" data-ui="module-feed-item-card">
+    <article className="list-item timeline-row" data-ui="module-feed-item-card">
       {debugBadge("FeedItemCard", "src/components/feed/FeedItemCard.tsx")}
-      <p className="kicker">
-        {titleCase(item.type)} · {formatDateTime(item.created_at)}
-      </p>
-      <h3 className="title-tight">{item.title}</h3>
-      {item.body ? <p className="text-reset">{item.body}</p> : null}
-      <div className="actions actions-spaced">
+      <div className="timeline-main">
+        <div className="section-row">
+          <p className="kicker">
+            {titleCase(item.type)} · {formatDateTime(item.created_at)}
+          </p>
+          {item.is_critical ? <span className="status-chip status-denied">Critical</span> : null}
+        </div>
+        <h3 className="title-tight">{item.title}</h3>
+        {item.body ? <p className="text-reset">{item.body}</p> : null}
+        {authorLabel ? <p className="caption">By {authorLabel}</p> : null}
+      </div>
+      <div className="actions">
         <Button variant="ghost" onClick={() => onOpen(item)}>
           Open
         </Button>
@@ -32,7 +40,6 @@ export function FeedItemCard({
             {item.is_pinned ? "Unpin" : "Pin"}
           </Button>
         ) : null}
-        {item.is_critical ? <span className="badge">Critical</span> : null}
       </div>
     </article>
   );

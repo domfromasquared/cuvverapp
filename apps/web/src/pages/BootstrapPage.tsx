@@ -79,7 +79,7 @@ export function BootstrapPage(): JSX.Element {
         setHousehold(selected);
         setRole(selected.role);
         setMembers(await getHouseholdMembers(selected.id));
-        navigate("/app/schedule", { replace: true });
+        navigate("/app/home", { replace: true });
       } catch (error) {
         pushToast(error instanceof Error ? error.message : "Unable to bootstrap session.");
       } finally {
@@ -137,7 +137,7 @@ export function BootstrapPage(): JSX.Element {
                 setRole(selected.role);
                 setMembers(await getHouseholdMembers(selected.id));
                 pushToast("Household created.");
-                navigate("/app/schedule", { replace: true });
+                navigate("/app/home", { replace: true });
               } catch (error) {
                 pushToast(error instanceof Error ? error.message : "Unable to create household.");
               }

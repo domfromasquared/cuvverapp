@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
+import { EmptyState } from "../components/common/EmptyState";
 import { useAppStore } from "../state/appStore";
 import type { PtoRequest } from "../types/domain";
 import { listPto, decidePto } from "../services/ptoApi";
@@ -12,17 +13,21 @@ import { debugBadge } from "../dev/uiDebug";
 
 export function PtoDetailPage(): JSX.Element {
   const { ptoId } = useParams();
-  const { household, profile, role } = useAppStore();
+  const { household, profile, role, members } = useAppStore();
   const { pushToast } = useUi();
   const [item, setItem] = useState<PtoRequest | null>(null);
 
   useEffect(() => {
-    if (!household || !ptoId) return;
+    if (!household || !ptoId || !PermissionHelper.canViewPto(role)) return;
     void (async () => {
       const items = await listPto(household.id);
       setItem(items.find((entry) => entry.id === ptoId) ?? null);
     })();
-  }, [household, ptoId]);
+  }, [household, ptoId, role]);
+
+  if (!PermissionHelper.canViewPto(role)) {
+    return <EmptyState title="No PTO access" body="Your role does not have access to PTO details." />;
+  }
 
   if (!household || !profile || !ptoId || !item) {
     return (
@@ -34,6 +39,8 @@ export function PtoDetailPage(): JSX.Element {
   }
 
   const canApprove = PermissionHelper.canApprovePto(role);
+  const requester = members.find((member) => member.user_id === item.user_id);
+  const requesterLabel = requester?.display_name || requester?.email || item.user_id;
 
   return (
     <Card data-ui="page-pto-detail">
@@ -42,6 +49,7 @@ export function PtoDetailPage(): JSX.Element {
       <p>
         {item.start_date} to {item.end_date}
       </p>
+      <p className="caption">Requester: {requesterLabel}</p>
       <p className="caption">Type: {item.type}</p>
       <p>{item.note ?? "No note."}</p>
       <p>
@@ -86,9 +94,11 @@ export function PtoDetailPage(): JSX.Element {
           </>
         ) : null}
 
-        <Link className="btn ghost" to={`/app/dm?context_type=pto&context_id=${item.id}`}>
-          Message about this PTO
-        </Link>
+        {PermissionHelper.canOpenDm(role, household.admin_controls) ? (
+          <Link className="btn ghost" to={`/app/dm?context_type=pto&context_id=${item.id}`}>
+            Open context chat
+          </Link>
+        ) : null}
       </div>
     </Card>
   );

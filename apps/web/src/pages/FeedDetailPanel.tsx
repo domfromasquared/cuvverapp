@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
@@ -17,12 +17,14 @@ import {
 } from "../services/feedApi";
 import type { Acknowledgement, Attachment, Comment, FeedItem, ReadReceipt } from "../types/domain";
 import { PermissionHelper } from "../permissions/permissionHelper";
+import { formatDateTime } from "../utils/dates";
+import { titleCase } from "../utils/format";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
 
 export function FeedDetailPanel(): JSX.Element {
   const { feedItemId } = useParams();
-  const { household, profile, role } = useAppStore();
+  const { household, profile, role, members } = useAppStore();
   const controls = household?.admin_controls ?? null;
   const { pushToast } = useUi();
 
@@ -41,9 +43,14 @@ export function FeedDetailPanel(): JSX.Element {
       setItem(found);
       if (!found) return;
 
-      setComments(await listComments(found.id));
-      setAcks(await listAcknowledgements(found.id));
-      setAttachments(await listAttachments(found.id));
+      const [nextComments, nextAcks, nextAttachments] = await Promise.all([
+        listComments(found.id),
+        listAcknowledgements(found.id),
+        listAttachments(found.id)
+      ]);
+      setComments(nextComments);
+      setAcks(nextAcks);
+      setAttachments(nextAttachments);
 
       if (found.is_critical) {
         await markSeen(household.id, found.id, profile.id);
@@ -51,6 +58,15 @@ export function FeedDetailPanel(): JSX.Element {
       }
     })();
   }, [feedItemId, household, profile]);
+
+  const memberById = useMemo(() => {
+    const map = new Map<string, string>();
+    members.forEach((member) => {
+      map.set(member.user_id, member.display_name || member.email || member.user_id);
+    });
+    if (profile) map.set(profile.id, profile.display_name || profile.email || "You");
+    return map;
+  }, [members, profile]);
 
   if (!household || !profile || !feedItemId || !item) {
     return <EmptyState title="Feed item not found" body="This item may have been removed." />;
@@ -60,9 +76,16 @@ export function FeedDetailPanel(): JSX.Element {
     <div className="stack" data-ui="page-feed-detail">
       {debugBadge("FeedDetailPanel", "src/pages/FeedDetailPanel.tsx")}
       <Card data-ui="feed-detail-card">
+        <div className="section-row">
+          <p className="kicker">
+            {titleCase(item.type)} · {formatDateTime(item.created_at)}
+          </p>
+          {item.is_critical ? <span className="status-chip status-denied">Critical</span> : null}
+        </div>
         <h2 className="section-title">{item.title}</h2>
-        <p>{item.body}</p>
-        <div className="actions">
+        {item.body ? <p>{item.body}</p> : null}
+        <p className="caption">By {memberById.get(item.author_user_id) ?? item.author_user_id}</p>
+        <div className="actions actions-spaced">
           {PermissionHelper.canAcknowledge(role, controls)
             ? (["seen", "thanks", "love", "got_it"] as const).map((kind) => (
                 <Button
@@ -82,9 +105,11 @@ export function FeedDetailPanel(): JSX.Element {
                 </Button>
               ))
             : null}
-          <Link className="btn ghost" to={`/app/dm?context_type=feed_item&context_id=${item.id}`}>
-            Message about this care update
-          </Link>
+          {PermissionHelper.canOpenDm(role, controls) ? (
+            <Link className="btn ghost" to={`/app/dm?context_type=feed_item&context_id=${item.id}`}>
+              Open context chat
+            </Link>
+          ) : null}
         </div>
         <p className="caption">Acknowledgements: {acks.length}</p>
       </Card>
@@ -96,7 +121,7 @@ export function FeedDetailPanel(): JSX.Element {
             <article className="list-item" key={attachment.id} data-ui="feed-detail-attachment-item">
               <p className="text-reset">{attachment.storage_path.split("/").pop()}</p>
               <a className="btn ghost" href={attachment.signed_url} target="_blank" rel="noreferrer">
-                Open attachment
+                Open
               </a>
             </article>
           ))}
@@ -105,14 +130,20 @@ export function FeedDetailPanel(): JSX.Element {
       </Card>
 
       <Card data-ui="feed-detail-comments-card">
-        <h3 className="title-reset">Comments</h3>
-        <div className="list" data-ui="feed-detail-comments-list">
-          {comments.map((comment) => (
-            <article className="list-item" key={comment.id} data-ui="feed-detail-comment-item">
-              <p className="text-reset">{comment.body}</p>
-              <p className="caption">{comment.author_user_id}</p>
-            </article>
-          ))}
+        <h3 className="title-reset">Conversation</h3>
+        <div className="chat-list" data-ui="feed-detail-comments-list">
+          {comments.map((comment) => {
+            const mine = comment.author_user_id === profile.id;
+            return (
+              <article key={comment.id} className={`chat-bubble ${mine ? "mine" : ""}`.trim()} data-ui="feed-detail-comment-item">
+                <p className="text-reset">{comment.body}</p>
+                <p className="caption">
+                  {memberById.get(comment.author_user_id) ?? comment.author_user_id} · {formatDateTime(comment.created_at)}
+                </p>
+              </article>
+            );
+          })}
+          {comments.length === 0 ? <p className="caption">No comments yet.</p> : null}
         </div>
         {PermissionHelper.canComment(role, controls) ? (
           <form
@@ -138,17 +169,17 @@ export function FeedDetailPanel(): JSX.Element {
             }}
           >
             <div className="form-row">
-              <label htmlFor="comment-body">Add comment</label>
-              <input id="comment-body" name="body" className="input" />
+              <label htmlFor="comment-body">Reply</label>
+              <input id="comment-body" name="body" className="input" placeholder="Add context for the team..." />
             </div>
             <Button type="submit" variant="secondary">
-              Send comment
+              Send
             </Button>
           </form>
         ) : null}
       </Card>
 
-      {item.is_critical ? <SeenByDrawer receipts={receipts} /> : null}
+      {item.is_critical ? <SeenByDrawer receipts={receipts} getUserLabel={(userId) => memberById.get(userId) ?? userId} /> : null}
     </div>
   );
 }

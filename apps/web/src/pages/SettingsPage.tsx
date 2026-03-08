@@ -8,6 +8,7 @@ import { useAppStore } from "../state/appStore";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { listDocuments, uploadDocument, removeDocument, getDocumentSignedUrl } from "../services/documentsApi";
 import { changeRole, getHouseholdMembers, inviteMember, updateHousehold } from "../services/householdApi";
+import { signOut } from "../auth/authService";
 import type { DocumentRecord, HouseholdMember, Role } from "../types/domain";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
@@ -21,12 +22,16 @@ export function SettingsPage(): JSX.Element {
   useEffect(() => {
     if (!household) return;
     void (async () => {
-      setDocuments(await listDocuments(household.id));
+      if (PermissionHelper.canViewDocuments(role)) {
+        setDocuments(await listDocuments(household.id));
+      } else {
+        setDocuments([]);
+      }
       const rows = await getHouseholdMembers(household.id);
       setMemberList(rows);
       setMembers(rows);
     })();
-  }, [household, setMembers]);
+  }, [household, role, setMembers]);
 
   if (!household || !profile) return <div />;
 
@@ -50,122 +55,125 @@ export function SettingsPage(): JSX.Element {
   return (
     <div className="stack" data-ui="page-settings">
       {debugBadge("SettingsPage", "src/pages/SettingsPage.tsx")}
+
       <Card data-ui="settings-household-card">
-        <h2 className="section-title">Household settings</h2>
-        <form
-          className="stack"
-          data-ui="settings-household-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!canAdmin) {
-              pushToast("Only owners and editors can change household settings.");
-              return;
-            }
-            const form = event.currentTarget;
-            const householdName = (form.elements.namedItem("household_name") as HTMLInputElement).value.trim();
-            const patch = {
-              name: householdName || household.name,
-              quiet_hours_start: (form.elements.namedItem("quiet_start") as HTMLInputElement).value || null,
-              quiet_hours_end: (form.elements.namedItem("quiet_end") as HTMLInputElement).value || null,
-              retention_policy_days: Number((form.elements.namedItem("retention") as HTMLSelectElement).value),
-              notify_care_updates: (form.elements.namedItem("notify_care") as HTMLInputElement).checked,
-              notify_schedule_changes: (form.elements.namedItem("notify_schedule") as HTMLInputElement).checked,
-              notify_pto_changes: (form.elements.namedItem("notify_pto") as HTMLInputElement).checked,
-              admin_controls: {
-                caregivers_can_post_care_updates: (form.elements.namedItem("caregivers_can_post") as HTMLInputElement).checked,
-                caregivers_can_upload_attachments: (form.elements.namedItem("caregivers_can_upload") as HTMLInputElement).checked,
-                caregivers_can_comment: (form.elements.namedItem("caregivers_can_comment") as HTMLInputElement).checked,
-                viewers_can_acknowledge: (form.elements.namedItem("viewers_can_ack") as HTMLInputElement).checked,
-                viewers_can_comment: (form.elements.namedItem("viewers_can_comment") as HTMLInputElement).checked,
-                require_ack_for_critical: (form.elements.namedItem("require_ack") as HTMLInputElement).checked,
-                dms_enabled: (form.elements.namedItem("dms_enabled") as HTMLInputElement).checked
+        <h2 className="section-title">Household</h2>
+        {canAdmin ? (
+          <form
+            className="stack"
+            data-ui="settings-household-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              const householdName = (form.elements.namedItem("household_name") as HTMLInputElement).value.trim();
+              const patch = {
+                name: householdName || household.name,
+                quiet_hours_start: (form.elements.namedItem("quiet_start") as HTMLInputElement).value || null,
+                quiet_hours_end: (form.elements.namedItem("quiet_end") as HTMLInputElement).value || null,
+                retention_policy_days: Number((form.elements.namedItem("retention") as HTMLSelectElement).value),
+                notify_care_updates: (form.elements.namedItem("notify_care") as HTMLInputElement).checked,
+                notify_schedule_changes: (form.elements.namedItem("notify_schedule") as HTMLInputElement).checked,
+                notify_pto_changes: (form.elements.namedItem("notify_pto") as HTMLInputElement).checked,
+                admin_controls: {
+                  caregivers_can_post_care_updates: (form.elements.namedItem("caregivers_can_post") as HTMLInputElement).checked,
+                  caregivers_can_upload_attachments: (form.elements.namedItem("caregivers_can_upload") as HTMLInputElement).checked,
+                  caregivers_can_comment: (form.elements.namedItem("caregivers_can_comment") as HTMLInputElement).checked,
+                  viewers_can_acknowledge: (form.elements.namedItem("viewers_can_ack") as HTMLInputElement).checked,
+                  viewers_can_comment: (form.elements.namedItem("viewers_can_comment") as HTMLInputElement).checked,
+                  require_ack_for_critical: (form.elements.namedItem("require_ack") as HTMLInputElement).checked,
+                  dms_enabled: (form.elements.namedItem("dms_enabled") as HTMLInputElement).checked
+                }
+              };
+
+              try {
+                const updated = await updateHousehold(household.id, patch);
+                setHousehold(updated);
+                pushToast("Household settings saved.");
+              } catch (error) {
+                pushToast(error instanceof Error ? error.message : "Unable to save settings.");
               }
-            };
-
-            try {
-              const updated = await updateHousehold(household.id, patch);
-              setHousehold(updated);
-              pushToast("Settings saved.");
-            } catch (error) {
-              pushToast(error instanceof Error ? error.message : "Unable to save settings.");
-            }
-          }}
-        >
-          <div className="form-row">
-            <label htmlFor="household-name">Household name</label>
-              <input
-                id="household-name"
-                className="input"
-                name="household_name"
-                defaultValue={household.name}
-                disabled={!canAdmin}
-                required
-              />
-            {!canAdmin ? <p className="caption">Only owners and editors can change household settings.</p> : null}
-          </div>
-          <div className="grid-2">
+            }}
+          >
             <div className="form-row">
-              <label htmlFor="quiet-start">Quiet hours start</label>
-              <input
-                id="quiet-start"
-                className="input"
-                name="quiet_start"
-                type="time"
-                defaultValue={household.quiet_hours_start ?? ""}
-                disabled={!canAdmin}
-              />
+              <label htmlFor="household-name">Household name</label>
+              <input id="household-name" className="input" name="household_name" defaultValue={household.name} required />
+            </div>
+            <div className="grid-2">
+              <div className="form-row">
+                <label htmlFor="quiet-start">Quiet hours start</label>
+                <input id="quiet-start" className="input" name="quiet_start" type="time" defaultValue={household.quiet_hours_start ?? ""} />
+              </div>
+              <div className="form-row">
+                <label htmlFor="quiet-end">Quiet hours end</label>
+                <input id="quiet-end" className="input" name="quiet_end" type="time" defaultValue={household.quiet_hours_end ?? ""} />
+              </div>
             </div>
             <div className="form-row">
-              <label htmlFor="quiet-end">Quiet hours end</label>
-              <input
-                id="quiet-end"
-                className="input"
-                name="quiet_end"
-                type="time"
-                defaultValue={household.quiet_hours_end ?? ""}
-                disabled={!canAdmin}
-              />
+              <label htmlFor="retention-days">Retention policy</label>
+              <select id="retention-days" className="select" name="retention" defaultValue={String(household.retention_policy_days)}>
+                <option value="30">30 days</option>
+                <option value="60">60 days</option>
+                <option value="90">90 days</option>
+              </select>
             </div>
+
+            <label className="check-row">
+              <input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} /> Care update notifications
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} /> Schedule notifications
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} /> PTO notifications
+            </label>
+
+            <hr className="hr" />
+            <h3 className="title-reset">Admin controls</h3>
+            <label className="check-row">
+              <input type="checkbox" name="caregivers_can_post" defaultChecked={controls.caregivers_can_post_care_updates} /> Caregivers can post updates
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="caregivers_can_upload" defaultChecked={controls.caregivers_can_upload_attachments} /> Caregivers can upload attachments
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="caregivers_can_comment" defaultChecked={controls.caregivers_can_comment} /> Caregivers can comment
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="viewers_can_ack" defaultChecked={controls.viewers_can_acknowledge} /> Viewers can acknowledge
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="viewers_can_comment" defaultChecked={controls.viewers_can_comment} /> Viewers can comment
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="require_ack" defaultChecked={controls.require_ack_for_critical} /> Require acknowledgement for critical posts
+            </label>
+            <label className="check-row">
+              <input type="checkbox" name="dms_enabled" defaultChecked={controls.dms_enabled} /> Enable context chat
+            </label>
+
+            <Button type="submit">Save household settings</Button>
+          </form>
+        ) : (
+          <div className="list">
+            <div className="list-item">
+              <p className="caption">Household name</p>
+              <p className="text-reset">{household.name}</p>
+            </div>
+            <div className="list-item">
+              <p className="caption">Timezone</p>
+              <p className="text-reset">{household.timezone}</p>
+            </div>
+            <div className="list-item">
+              <p className="caption">Retention policy</p>
+              <p className="text-reset">{household.retention_policy_days} days</p>
+            </div>
+            <p className="caption">Only owners and editors can modify household settings.</p>
           </div>
-          <div className="form-row">
-            <label htmlFor="retention-days">Retention policy</label>
-            <select
-              id="retention-days"
-              className="select"
-              name="retention"
-              defaultValue={String(household.retention_policy_days)}
-              disabled={!canAdmin}
-            >
-              <option value="30">30 days</option>
-              <option value="60">60 days</option>
-              <option value="90">90 days</option>
-            </select>
-          </div>
-
-          <label className="check-row"><input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} disabled={!canAdmin} /> Care Update notifications</label>
-          <label className="check-row"><input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} disabled={!canAdmin} /> Schedule notifications</label>
-          <label className="check-row"><input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} disabled={!canAdmin} /> PTO notifications</label>
-
-          {canAdmin ? (
-            <>
-              <hr className="hr" />
-              <h3 className="title-reset">Admin Controls</h3>
-              <label className="check-row"><input type="checkbox" name="caregivers_can_post" defaultChecked={controls.caregivers_can_post_care_updates} /> Caregivers can post care updates</label>
-              <label className="check-row"><input type="checkbox" name="caregivers_can_upload" defaultChecked={controls.caregivers_can_upload_attachments} /> Caregivers can upload attachments</label>
-              <label className="check-row"><input type="checkbox" name="caregivers_can_comment" defaultChecked={controls.caregivers_can_comment} /> Caregivers can comment</label>
-              <label className="check-row"><input type="checkbox" name="viewers_can_ack" defaultChecked={controls.viewers_can_acknowledge} /> Viewers can acknowledge</label>
-              <label className="check-row"><input type="checkbox" name="viewers_can_comment" defaultChecked={controls.viewers_can_comment} /> Viewers can comment</label>
-              <label className="check-row"><input type="checkbox" name="require_ack" defaultChecked={controls.require_ack_for_critical} /> Require acknowledgement for critical items</label>
-              <label className="check-row"><input type="checkbox" name="dms_enabled" defaultChecked={controls.dms_enabled} /> Enable contextual DMs (scaffold)</label>
-            </>
-          ) : null}
-
-          {canAdmin ? <Button type="submit">Save settings</Button> : null}
-        </form>
+        )}
       </Card>
 
       <Card data-ui="settings-members-card">
-        <h2 className="section-title">Members</h2>
+        <h2 className="section-title">Team members</h2>
         <div className="list" data-ui="settings-members-list">
           {memberList.map((member) => {
             const ownerGuard = role !== "owner" && member.role === "owner";
@@ -203,7 +211,7 @@ export function SettingsPage(): JSX.Element {
                     <option value="viewer">viewer</option>
                   </select>
                 ) : (
-                  <p className="caption">Role: {member.role}</p>
+                  <span className="status-chip status-approved">{member.role}</span>
                 )}
               </article>
             );
@@ -242,14 +250,16 @@ export function SettingsPage(): JSX.Element {
                 <option value="viewer">viewer</option>
               </select>
             </div>
-            <Button type="submit" variant="secondary">Create invite</Button>
+            <Button type="submit" variant="secondary">
+              Create invite link
+            </Button>
           </form>
         ) : null}
       </Card>
 
       <Card data-ui="settings-documents-card">
-        <h2 className="section-title">Documents Vault</h2>
-        <p className="caption">Retention policy applies (cleanup job TODO).</p>
+        <h2 className="section-title">Documents vault</h2>
+        <p className="caption">Retention policy applies.</p>
         {!canViewDocuments ? <EmptyState title="No access" body="Documents are restricted for your role." /> : null}
         {canViewDocuments ? (
           <>
@@ -291,6 +301,35 @@ export function SettingsPage(): JSX.Element {
         ) : null}
       </Card>
 
+      <Card data-ui="settings-account-card">
+        <h2 className="section-title">Account</h2>
+        <div className="list">
+          <div className="list-item">
+            <p className="caption">Name</p>
+            <p className="text-reset">{profile.display_name || "Member"}</p>
+          </div>
+          <div className="list-item">
+            <p className="caption">Email</p>
+            <p className="text-reset">{profile.email}</p>
+          </div>
+          <div className="list-item">
+            <p className="caption">Role</p>
+            <p className="text-reset">{role || "member"}</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          onClick={async () => {
+            try {
+              await signOut();
+            } finally {
+              window.location.hash = "#/auth";
+            }
+          }}
+        >
+          Log out
+        </Button>
+      </Card>
     </div>
   );
 }

@@ -6,12 +6,14 @@ export function PinnedSection({
   items,
   onOpen,
   onPinToggle,
-  canPin
+  canPin,
+  getAuthorLabel
 }: {
   items: FeedItem[];
   onOpen: (item: FeedItem) => void;
   onPinToggle: (item: FeedItem) => void;
   canPin: boolean;
+  getAuthorLabel?: (userId: string) => string;
 }): JSX.Element | null {
   if (items.length === 0) return null;
 
@@ -21,7 +23,14 @@ export function PinnedSection({
       <h2 className="section-title">Pinned</h2>
       <div className="list" data-ui="module-pinned-list">
         {items.map((item) => (
-          <FeedItemCard key={item.id} item={item} onOpen={onOpen} onPinToggle={onPinToggle} canPin={canPin} />
+          <FeedItemCard
+            key={item.id}
+            item={item}
+            onOpen={onOpen}
+            onPinToggle={onPinToggle}
+            canPin={canPin}
+            authorLabel={getAuthorLabel?.(item.author_user_id)}
+          />
         ))}
       </div>
     </section>

@@ -7,6 +7,7 @@ import { useAppStore } from "../state/appStore";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { createDmThread, listMessages, listThreads, sendMessage } from "../services/dmApi";
 import type { DmMessage, DmThread } from "../types/domain";
+import { formatDateTime } from "../utils/dates";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
 
@@ -15,7 +16,7 @@ export function DmPanel(): JSX.Element {
   const contextType = searchParams.get("context_type");
   const contextId = searchParams.get("context_id");
 
-  const { household, role, profile } = useAppStore();
+  const { household, role, profile, members } = useAppStore();
   const controls = household?.admin_controls ?? null;
   const { pushToast } = useUi();
 
@@ -42,68 +43,86 @@ export function DmPanel(): JSX.Element {
     void listMessages(selectedThreadId).then(setMessages);
   }, [selectedThreadId]);
 
+  const memberById = useMemo(() => {
+    const map = new Map<string, string>();
+    members.forEach((member) => {
+      map.set(member.user_id, member.display_name || member.email || member.user_id);
+    });
+    if (profile) map.set(profile.id, profile.display_name || profile.email || "You");
+    return map;
+  }, [members, profile]);
+
   if (!enabled || !household || !contextType || !contextId || !profile) {
-    return <EmptyState title="DM scaffold disabled" body="Contextual messages are off for this household." />;
+    return <EmptyState title="Context chat unavailable" body="Direct messaging is disabled for your role or this household." />;
   }
 
   return (
     <div className="stack" data-ui="page-dm-panel">
       {debugBadge("DmPanel", "src/pages/DmPanel.tsx")}
       <Card data-ui="dm-context-card">
-        <h2 className="section-title">Context message thread</h2>
+        <div className="section-row">
+          <h2 className="section-title">Context chat</h2>
+          {threads.length === 0 ? (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const result = await createDmThread({
+                    household_id: household.id,
+                    context_type: contextType as "shift" | "pto" | "feed_item",
+                    context_id: contextId,
+                    participants: [profile.id]
+                  });
+                  const rows = await listThreads(household.id, contextType, contextId);
+                  setThreads(rows);
+                  setSelectedThreadId(result.thread_id);
+                  pushToast("Thread started.");
+                } catch (error) {
+                  pushToast(error instanceof Error ? error.message : "Unable to create thread.");
+                }
+              }}
+            >
+              Start thread
+            </Button>
+          ) : null}
+        </div>
         <p className="caption">
           Context: {contextType} · {contextId}
         </p>
-        <Button
-          variant="secondary"
-          onClick={async () => {
-            try {
-              const result = await createDmThread({
-                household_id: household.id,
-                context_type: contextType as "shift" | "pto" | "feed_item",
-                context_id: contextId,
-                participants: [profile.id]
-              });
-              const rows = await listThreads(household.id, contextType, contextId);
-              setThreads(rows);
-              setSelectedThreadId(result.thread_id);
-              pushToast("Context thread created.");
-            } catch (error) {
-              pushToast(error instanceof Error ? error.message : "Unable to create DM thread.");
-            }
-          }}
-        >
-          Start thread
-        </Button>
       </Card>
 
       <Card data-ui="dm-threads-card">
         <h3 className="title-reset">Threads</h3>
-        {threads.length === 0 ? <p className="caption">No threads for this context yet.</p> : null}
-        <div className="list" data-ui="dm-threads-list">
-          {threads.map((thread) => (
+        {threads.length === 0 ? <p className="caption">No messages yet for this context.</p> : null}
+        <div className="chip-row" data-ui="dm-threads-list">
+          {threads.map((thread, index) => (
             <button
               key={thread.id}
-              className="btn ghost"
-              onClick={() => {
-                setSelectedThreadId(thread.id);
-              }}
+              type="button"
+              className={`chip-toggle ${selectedThreadId === thread.id ? "active" : ""}`.trim()}
+              onClick={() => setSelectedThreadId(thread.id)}
             >
-              Thread {thread.id.slice(0, 8)}
+              Thread {index + 1}
             </button>
           ))}
         </div>
       </Card>
 
       <Card data-ui="dm-messages-card">
-        <h3 className="title-reset">Messages</h3>
-        <div className="list" data-ui="dm-messages-list">
-          {messages.map((message) => (
-            <article key={message.id} className="list-item" data-ui="dm-message-item">
-              <p className="text-reset">{message.body}</p>
-              <p className="caption">{message.author_user_id}</p>
-            </article>
-          ))}
+        <h3 className="title-reset">Conversation</h3>
+        <div className="chat-list" data-ui="dm-messages-list">
+          {messages.map((message) => {
+            const mine = message.author_user_id === profile.id;
+            return (
+              <article key={message.id} className={`chat-bubble ${mine ? "mine" : ""}`.trim()} data-ui="dm-message-item">
+                <p className="text-reset">{message.body}</p>
+                <p className="caption">
+                  {memberById.get(message.author_user_id) ?? message.author_user_id} · {formatDateTime(message.created_at)}
+                </p>
+              </article>
+            );
+          })}
+          {messages.length === 0 ? <p className="caption">No messages yet.</p> : null}
         </div>
 
         {selectedThreadId ? (
@@ -121,8 +140,8 @@ export function DmPanel(): JSX.Element {
             }}
           >
             <div className="form-row">
-              <label htmlFor="dm-body">Message</label>
-              <input id="dm-body" className="input" name="body" />
+              <label htmlFor="dm-body">Reply</label>
+              <input id="dm-body" className="input" name="body" placeholder="Type your message..." />
             </div>
             <Button type="submit">Send</Button>
           </form>
