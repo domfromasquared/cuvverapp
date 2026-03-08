@@ -18,6 +18,7 @@ export function SettingsPage(): JSX.Element {
   const { pushToast } = useUi();
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [memberList, setMemberList] = useState<HouseholdMember[]>(members);
+  const [latestInvite, setLatestInvite] = useState<{ email: string; role: Role; link: string } | null>(null);
 
   useEffect(() => {
     if (!household) return;
@@ -231,7 +232,8 @@ export function SettingsPage(): JSX.Element {
 
               try {
                 const result = await inviteMember({ household_id: household.id, email, role: roleValue });
-                pushToast(`Invite created: ${result.invite_link}`);
+                setLatestInvite({ email, role: roleValue, link: result.invite_link });
+                pushToast("Invite link created.");
                 form.reset();
               } catch (error) {
                 pushToast(error instanceof Error ? error.message : "Unable to invite member.");
@@ -254,6 +256,44 @@ export function SettingsPage(): JSX.Element {
               Create invite link
             </Button>
           </form>
+        ) : null}
+
+        {canAdmin && latestInvite ? (
+          <div className="list-item" data-ui="settings-invite-result">
+            <p className="caption">
+              Invite ready for {latestInvite.email} ({latestInvite.role}). Role is assigned when this link is accepted.
+            </p>
+            <div className="form-row">
+              <label htmlFor="invite-link-output">Invite link</label>
+              <input id="invite-link-output" className="input" value={latestInvite.link} readOnly />
+            </div>
+            <div className="actions actions-spaced">
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(latestInvite.link);
+                    pushToast("Invite link copied.");
+                  } catch {
+                    pushToast("Copy failed. Copy the link manually.");
+                  }
+                }}
+              >
+                Copy link
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const subject = "Join my Cuvver household";
+                  const body = `You were invited as ${latestInvite.role}. Open this link to join: ${latestInvite.link}`;
+                  window.location.href = `mailto:${encodeURIComponent(latestInvite.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                }}
+              >
+                Send email
+              </Button>
+            </div>
+            <p className="caption">This app currently generates secure invite links; the email button opens your mail app with the link prefilled.</p>
+          </div>
         ) : null}
       </Card>
 
