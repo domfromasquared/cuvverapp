@@ -66,6 +66,26 @@ supabase functions deploy upsert-coverage-brief
 supabase functions deploy create-dm-thread
 ```
 
+### Optional: automatic invite emails
+`invite-member` can send invites directly using Resend.
+
+Set these edge function secrets:
+
+```bash
+supabase secrets set INVITE_EMAIL_PROVIDER=resend
+supabase secrets set RESEND_API_KEY=<resend_api_key>
+supabase secrets set INVITE_EMAIL_FROM="Cuvver <no-reply@your-domain.com>"
+supabase secrets set INVITE_EMAIL_SUBJECT_PREFIX="Cuvver"
+```
+
+Then redeploy:
+
+```bash
+supabase functions deploy invite-member
+```
+
+If these are not set, invite links are still generated and can be shared manually.
+
 ## Seed Notes
 `0004_seed.sql` creates:
 - `Hartley Household`

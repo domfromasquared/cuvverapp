@@ -18,6 +18,9 @@ export interface InviteMemberInput {
 export interface InviteMemberResponse {
   token: string;
   invite_link: string;
+  email_sent?: boolean;
+  email_provider?: string;
+  email_error?: string;
 }
 
 export interface AcceptInviteInput {

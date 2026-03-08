@@ -68,6 +68,13 @@ In Supabase dashboard -> Edge Functions -> Secrets, set:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PUBLIC_APP_URL` (recommended, e.g. `http://localhost:5173` for dev)
 
+Optional for automatic invite email delivery (Resend):
+
+- `INVITE_EMAIL_PROVIDER` = `resend`
+- `RESEND_API_KEY`
+- `INVITE_EMAIL_FROM` (e.g. `Cuvver <no-reply@your-domain.com>`)
+- `INVITE_EMAIL_SUBJECT_PREFIX` (optional)
+
 ## 7) Common errors and fixes
 
 ### A) OAuth callback route mismatch in hash router

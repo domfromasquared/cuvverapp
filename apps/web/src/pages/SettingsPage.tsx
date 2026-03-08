@@ -233,7 +233,13 @@ export function SettingsPage(): JSX.Element {
               try {
                 const result = await inviteMember({ household_id: household.id, email, role: roleValue });
                 setLatestInvite({ email, role: roleValue, link: result.invite_link });
-                pushToast("Invite link created.");
+                if (result.email_sent) {
+                  pushToast(`Invite emailed to ${email}.`);
+                } else if (result.email_error) {
+                  pushToast(`Invite link created. Email not sent: ${result.email_error}`);
+                } else {
+                  pushToast("Invite link created.");
+                }
                 form.reset();
               } catch (error) {
                 pushToast(error instanceof Error ? error.message : "Unable to invite member.");
@@ -292,7 +298,7 @@ export function SettingsPage(): JSX.Element {
                 Send email
               </Button>
             </div>
-            <p className="caption">This app currently generates secure invite links; the email button opens your mail app with the link prefilled.</p>
+            <p className="caption">Invite links always work. Automatic delivery uses the configured edge email provider; Send email opens your mail app as fallback.</p>
           </div>
         ) : null}
       </Card>
