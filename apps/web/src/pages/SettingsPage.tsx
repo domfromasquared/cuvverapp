@@ -57,10 +57,14 @@ export function SettingsPage(): JSX.Element {
           data-ui="settings-household-form"
           onSubmit={async (event) => {
             event.preventDefault();
+            if (!canAdmin) {
+              pushToast("Only owners and editors can change household settings.");
+              return;
+            }
             const form = event.currentTarget;
             const householdName = (form.elements.namedItem("household_name") as HTMLInputElement).value.trim();
             const patch = {
-              ...(canAdmin ? { name: householdName || household.name } : {}),
+              name: householdName || household.name,
               quiet_hours_start: (form.elements.namedItem("quiet_start") as HTMLInputElement).value || null,
               quiet_hours_end: (form.elements.namedItem("quiet_end") as HTMLInputElement).value || null,
               retention_policy_days: Number((form.elements.namedItem("retention") as HTMLSelectElement).value),
@@ -89,38 +93,58 @@ export function SettingsPage(): JSX.Element {
         >
           <div className="form-row">
             <label htmlFor="household-name">Household name</label>
-            <input
-              id="household-name"
-              className="input"
-              name="household_name"
-              defaultValue={household.name}
-              disabled={!canAdmin}
-              required
-            />
-            {!canAdmin ? <p className="caption">Only owners/editors can rename the household.</p> : null}
+              <input
+                id="household-name"
+                className="input"
+                name="household_name"
+                defaultValue={household.name}
+                disabled={!canAdmin}
+                required
+              />
+            {!canAdmin ? <p className="caption">Only owners and editors can change household settings.</p> : null}
           </div>
           <div className="grid-2">
             <div className="form-row">
               <label htmlFor="quiet-start">Quiet hours start</label>
-              <input id="quiet-start" className="input" name="quiet_start" type="time" defaultValue={household.quiet_hours_start ?? ""} />
+              <input
+                id="quiet-start"
+                className="input"
+                name="quiet_start"
+                type="time"
+                defaultValue={household.quiet_hours_start ?? ""}
+                disabled={!canAdmin}
+              />
             </div>
             <div className="form-row">
               <label htmlFor="quiet-end">Quiet hours end</label>
-              <input id="quiet-end" className="input" name="quiet_end" type="time" defaultValue={household.quiet_hours_end ?? ""} />
+              <input
+                id="quiet-end"
+                className="input"
+                name="quiet_end"
+                type="time"
+                defaultValue={household.quiet_hours_end ?? ""}
+                disabled={!canAdmin}
+              />
             </div>
           </div>
           <div className="form-row">
             <label htmlFor="retention-days">Retention policy</label>
-            <select id="retention-days" className="select" name="retention" defaultValue={String(household.retention_policy_days)}>
+            <select
+              id="retention-days"
+              className="select"
+              name="retention"
+              defaultValue={String(household.retention_policy_days)}
+              disabled={!canAdmin}
+            >
               <option value="30">30 days</option>
               <option value="60">60 days</option>
               <option value="90">90 days</option>
             </select>
           </div>
 
-          <label className="check-row"><input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} /> Care Update notifications</label>
-          <label className="check-row"><input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} /> Schedule notifications</label>
-          <label className="check-row"><input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} /> PTO notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_care" defaultChecked={household.notify_care_updates} disabled={!canAdmin} /> Care Update notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_schedule" defaultChecked={household.notify_schedule_changes} disabled={!canAdmin} /> Schedule notifications</label>
+          <label className="check-row"><input type="checkbox" name="notify_pto" defaultChecked={household.notify_pto_changes} disabled={!canAdmin} /> PTO notifications</label>
 
           {canAdmin ? (
             <>
@@ -136,7 +160,7 @@ export function SettingsPage(): JSX.Element {
             </>
           ) : null}
 
-          <Button type="submit">Save settings</Button>
+          {canAdmin ? <Button type="submit">Save settings</Button> : null}
         </form>
       </Card>
 
