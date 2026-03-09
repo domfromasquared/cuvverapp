@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { EmptyState } from "../components/common/EmptyState";
+import { Avatar } from "../components/common/Avatar";
 import { SeenByDrawer } from "../components/feed/SeenByDrawer";
 import { useAppStore } from "../state/appStore";
 import {
@@ -21,6 +22,7 @@ import { formatDateTime } from "../utils/dates";
 import { titleCase } from "../utils/format";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 export function FeedDetailPanel(): JSX.Element {
   const { feedItemId } = useParams();
@@ -67,6 +69,26 @@ export function FeedDetailPanel(): JSX.Element {
     if (profile) map.set(profile.id, profile.display_name || profile.email || "You");
     return map;
   }, [members, profile]);
+  const identityRows = useMemo(
+    () => [
+      ...members.map((member) => ({
+        user_id: member.user_id,
+        avatar_path: member.avatar_path ?? null,
+        avatar_url: member.avatar_url ?? null
+      })),
+      ...(profile
+        ? [
+            {
+              user_id: profile.id,
+              avatar_path: profile.avatar_path ?? null,
+              avatar_url: profile.avatar_url ?? null
+            }
+          ]
+        : [])
+    ],
+    [members, profile]
+  );
+  const avatarById = useAvatarUrls(identityRows);
 
   if (!household || !profile || !feedItemId || !item) {
     return <EmptyState title="Feed item not found" body="This item may have been removed." />;
@@ -84,7 +106,14 @@ export function FeedDetailPanel(): JSX.Element {
         </div>
         <h2 className="section-title">{item.title}</h2>
         {item.body ? <p>{item.body}</p> : null}
-        <p className="caption">By {memberById.get(item.author_user_id) ?? item.author_user_id}</p>
+        <div className="identity-row">
+          <Avatar
+            size="sm"
+            name={memberById.get(item.author_user_id) ?? item.author_user_id}
+            src={avatarById.get(item.author_user_id) ?? null}
+          />
+          <p className="caption">By {memberById.get(item.author_user_id) ?? item.author_user_id}</p>
+        </div>
         <div className="actions actions-spaced">
           {PermissionHelper.canAcknowledge(role, controls)
             ? (["seen", "thanks", "love", "got_it"] as const).map((kind) => (
@@ -137,9 +166,16 @@ export function FeedDetailPanel(): JSX.Element {
             return (
               <article key={comment.id} className={`chat-bubble ${mine ? "mine" : ""}`.trim()} data-ui="feed-detail-comment-item">
                 <p className="text-reset">{comment.body}</p>
-                <p className="caption">
-                  {memberById.get(comment.author_user_id) ?? comment.author_user_id} · {formatDateTime(comment.created_at)}
-                </p>
+                <div className="identity-row">
+                  <Avatar
+                    size="sm"
+                    name={memberById.get(comment.author_user_id) ?? comment.author_user_id}
+                    src={avatarById.get(comment.author_user_id) ?? null}
+                  />
+                  <p className="caption">
+                    {memberById.get(comment.author_user_id) ?? comment.author_user_id} · {formatDateTime(comment.created_at)}
+                  </p>
+                </div>
               </article>
             );
           })}

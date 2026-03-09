@@ -7,6 +7,7 @@ import { FeedItemCard } from "../components/feed/FeedItemCard";
 import { PinnedSection } from "../components/feed/PinnedSection";
 import { useAppStore } from "../state/appStore";
 import { PermissionHelper } from "../permissions/permissionHelper";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 import {
   createCareUpdate,
   createProtocol,
@@ -50,6 +51,26 @@ export function FeedPage(): JSX.Element {
 
   const pinned = useMemo(() => feed.filter((item) => item.is_pinned), [feed]);
   const timeline = useMemo(() => feed.filter((item) => !item.is_pinned), [feed]);
+  const identityRows = useMemo(
+    () => [
+      ...members.map((member) => ({
+        user_id: member.user_id,
+        avatar_path: member.avatar_path ?? null,
+        avatar_url: member.avatar_url ?? null
+      })),
+      ...(profile
+        ? [
+            {
+              user_id: profile.id,
+              avatar_path: profile.avatar_path ?? null,
+              avatar_url: profile.avatar_url ?? null
+            }
+          ]
+        : [])
+    ],
+    [members, profile]
+  );
+  const avatarById = useAvatarUrls(identityRows);
 
   if (!household || !profile) return <div />;
 
@@ -242,6 +263,7 @@ export function FeedPage(): JSX.Element {
         items={pinned}
         canPin={canPin}
         getAuthorLabel={(userId) => authorById.get(userId) ?? userId}
+        getAuthorAvatarUrl={(userId) => avatarById.get(userId) ?? null}
         onOpen={(item) => {
           window.location.hash = `#/app/feed/${item.id}`;
         }}
@@ -269,6 +291,7 @@ export function FeedPage(): JSX.Element {
               item={item}
               canPin={canPin}
               authorLabel={authorById.get(item.author_user_id) ?? item.author_user_id}
+              authorAvatarUrl={avatarById.get(item.author_user_id) ?? null}
               onOpen={(selected) => {
                 window.location.hash = `#/app/feed/${selected.id}`;
               }}

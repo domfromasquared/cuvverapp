@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { EmptyState } from "../components/common/EmptyState";
+import { Avatar } from "../components/common/Avatar";
 import { useAppStore } from "../state/appStore";
 import type { PtoRequest } from "../types/domain";
 import { listPto, decidePto } from "../services/ptoApi";
@@ -10,12 +11,14 @@ import { createSystemEvent } from "../services/feedApi";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
+import { resolveAvatarUrl } from "../services/profileApi";
 
 export function PtoDetailPage(): JSX.Element {
   const { ptoId } = useParams();
   const { household, profile, role, members } = useAppStore();
   const { pushToast } = useUi();
   const [item, setItem] = useState<PtoRequest | null>(null);
+  const [requesterAvatarUrl, setRequesterAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!household || !ptoId || !PermissionHelper.canViewPto(role)) return;
@@ -24,6 +27,29 @@ export function PtoDetailPage(): JSX.Element {
       setItem(items.find((entry) => entry.id === ptoId) ?? null);
     })();
   }, [household, ptoId, role]);
+
+  const requester = members.find((member) => member.user_id === item?.user_id);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!requester) {
+        setRequesterAvatarUrl(null);
+        return;
+      }
+      try {
+        const url = await resolveAvatarUrl({
+          avatar_path: requester.avatar_path ?? null,
+          avatar_url: requester.avatar_url ?? null
+        });
+        if (!cancelled) setRequesterAvatarUrl(url);
+      } catch {
+        if (!cancelled) setRequesterAvatarUrl(requester.avatar_url ?? null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requester]);
 
   if (!PermissionHelper.canViewPto(role)) {
     return <EmptyState title="No PTO access" body="Your role does not have access to PTO details." />;
@@ -39,7 +65,6 @@ export function PtoDetailPage(): JSX.Element {
   }
 
   const canApprove = PermissionHelper.canApprovePto(role);
-  const requester = members.find((member) => member.user_id === item.user_id);
   const requesterLabel = requester?.display_name || requester?.email || item.user_id;
 
   return (
@@ -49,7 +74,10 @@ export function PtoDetailPage(): JSX.Element {
       <p>
         {item.start_date} to {item.end_date}
       </p>
-      <p className="caption">Requester: {requesterLabel}</p>
+      <div className="identity-row">
+        <Avatar size="sm" name={requesterLabel} src={requesterAvatarUrl} />
+        <p className="caption">Requester: {requesterLabel}</p>
+      </div>
       <p className="caption">Type: {item.type}</p>
       <p>{item.note ?? "No note."}</p>
       <p>

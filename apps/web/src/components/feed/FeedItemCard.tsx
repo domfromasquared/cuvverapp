@@ -2,6 +2,7 @@ import type { FeedItem } from "../../types/domain";
 import { formatDateTime } from "../../utils/dates";
 import { titleCase } from "../../utils/format";
 import { Button } from "../common/Button";
+import { Avatar } from "../common/Avatar";
 import { debugBadge } from "../../dev/uiDebug";
 
 export function FeedItemCard({
@@ -9,13 +10,15 @@ export function FeedItemCard({
   onOpen,
   onPinToggle,
   canPin,
-  authorLabel
+  authorLabel,
+  authorAvatarUrl
 }: {
   item: FeedItem;
   onOpen: (item: FeedItem) => void;
   onPinToggle: (item: FeedItem) => void;
   canPin: boolean;
   authorLabel?: string;
+  authorAvatarUrl?: string | null;
 }): JSX.Element {
   return (
     <article className="list-item timeline-row" data-ui="module-feed-item-card">
@@ -29,7 +32,12 @@ export function FeedItemCard({
         </div>
         <h3 className="title-tight">{item.title}</h3>
         {item.body ? <p className="text-reset">{item.body}</p> : null}
-        {authorLabel ? <p className="caption">By {authorLabel}</p> : null}
+        {authorLabel ? (
+          <div className="identity-row">
+            <Avatar size="sm" name={authorLabel} src={authorAvatarUrl ?? null} />
+            <p className="caption">By {authorLabel}</p>
+          </div>
+        ) : null}
       </div>
       <div className="actions">
         <Button variant="ghost" onClick={() => onOpen(item)}>

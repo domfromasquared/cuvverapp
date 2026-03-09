@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { EmptyState } from "../components/common/EmptyState";
+import { Avatar } from "../components/common/Avatar";
 import { useAppStore } from "../state/appStore";
 import { listPto, requestPto } from "../services/ptoApi";
 import { createSystemEvent } from "../services/feedApi";
@@ -10,6 +11,7 @@ import type { PtoRequest } from "../types/domain";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 const PTO_TYPES: Array<{ value: PtoRequest["type"]; label: string }> = [
   { value: "vacation", label: "Vacation" },
@@ -44,6 +46,26 @@ export function PtoPage(): JSX.Element {
     if (profile) map.set(profile.id, profile.display_name || profile.email || "You");
     return map;
   }, [members, profile]);
+  const identityRows = useMemo(
+    () => [
+      ...members.map((member) => ({
+        user_id: member.user_id,
+        avatar_path: member.avatar_path ?? null,
+        avatar_url: member.avatar_url ?? null
+      })),
+      ...(profile
+        ? [
+            {
+              user_id: profile.id,
+              avatar_path: profile.avatar_path ?? null,
+              avatar_url: profile.avatar_url ?? null
+            }
+          ]
+        : [])
+    ],
+    [members, profile]
+  );
+  const avatarById = useAvatarUrls(identityRows);
 
   if (!household || !profile) return <div />;
   if (!PermissionHelper.canViewPto(role)) {
@@ -160,7 +182,10 @@ export function PtoPage(): JSX.Element {
                 <h3 className="title-tight">
                   {item.start_date} to {item.end_date}
                 </h3>
-                <p className="caption">{memberById.get(item.user_id) ?? item.user_id}</p>
+                <div className="identity-row">
+                  <Avatar size="sm" name={memberById.get(item.user_id) ?? item.user_id} src={avatarById.get(item.user_id) ?? null} />
+                  <p className="caption">{memberById.get(item.user_id) ?? item.user_id}</p>
+                </div>
                 <div className="actions actions-spaced">
                   <span className={statusClass(item.status)}>{item.status}</span>
                   <Link className="btn secondary" to={`/app/pto/${item.id}`}>
@@ -201,9 +226,12 @@ export function PtoPage(): JSX.Element {
               <h3 className="title-tight">
                 {item.start_date} to {item.end_date}
               </h3>
-              <p className="caption">
-                {item.type} · {memberById.get(item.user_id) ?? item.user_id}
-              </p>
+              <div className="identity-row">
+                <Avatar size="sm" name={memberById.get(item.user_id) ?? item.user_id} src={avatarById.get(item.user_id) ?? null} />
+                <p className="caption">
+                  {item.type} · {memberById.get(item.user_id) ?? item.user_id}
+                </p>
+              </div>
               <div className="actions actions-spaced">
                 <span className={statusClass(item.status)}>{item.status}</span>
                 <Link className="btn ghost" to={`/app/pto/${item.id}`}>

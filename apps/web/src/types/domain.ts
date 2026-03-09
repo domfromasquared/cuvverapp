@@ -27,6 +27,8 @@ export interface UserProfile {
   household_id: string | null;
   display_name: string;
   email: string;
+  avatar_url?: string | null;
+  avatar_path?: string | null;
   created_at: string;
 }
 
@@ -51,6 +53,8 @@ export interface HouseholdMember {
   role: Role;
   display_name?: string;
   email?: string;
+  avatar_url?: string | null;
+  avatar_path?: string | null;
   created_at: string;
 }
 

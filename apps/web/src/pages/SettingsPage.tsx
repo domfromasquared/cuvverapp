@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
+import { Avatar } from "../components/common/Avatar";
 import { DocumentsList } from "../components/documents/DocumentsList";
 import { UploadDocumentForm } from "../components/documents/UploadDocumentForm";
 import { useAppStore } from "../state/appStore";
@@ -12,13 +13,18 @@ import { signOut } from "../auth/authService";
 import type { DocumentRecord, HouseholdMember, Role } from "../types/domain";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
+import { removeMyAvatar, uploadMyAvatar, validateAvatarFile } from "../services/profileApi";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 export function SettingsPage(): JSX.Element {
-  const { household, profile, role, setHousehold, setMembers, members } = useAppStore();
+  const { household, profile, role, setHousehold, setMembers, setProfile, members } = useAppStore();
   const { pushToast } = useUi();
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [memberList, setMemberList] = useState<HouseholdMember[]>(members);
   const [latestInvite, setLatestInvite] = useState<{ email: string; role: Role; link: string } | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!household) return;
@@ -40,6 +46,22 @@ export function SettingsPage(): JSX.Element {
   const canManageDocuments = PermissionHelper.canManageDocuments(role);
   const canViewDocuments = PermissionHelper.canViewDocuments(role);
   const controls = household.admin_controls;
+  const avatarIdentities = useMemo(
+    () => [
+      ...memberList.map((member) => ({
+        user_id: member.user_id,
+        avatar_path: member.avatar_path ?? null,
+        avatar_url: member.avatar_url ?? null
+      })),
+      {
+        user_id: profile.id,
+        avatar_path: profile.avatar_path ?? null,
+        avatar_url: profile.avatar_url ?? null
+      }
+    ],
+    [memberList, profile]
+  );
+  const avatarByUserId = useAvatarUrls(avatarIdentities);
 
   async function refreshDocuments(): Promise<void> {
     if (!household) return;
@@ -180,8 +202,17 @@ export function SettingsPage(): JSX.Element {
             const ownerGuard = role !== "owner" && member.role === "owner";
             return (
               <article className="list-item" key={member.user_id} data-ui="settings-member-item">
-                <p className="text-reset">{member.display_name ?? member.email ?? member.user_id}</p>
-                <p className="caption">{member.email ?? member.user_id}</p>
+                <div className="identity-row">
+                  <Avatar
+                    name={member.display_name ?? member.email ?? member.user_id}
+                    email={member.email}
+                    src={avatarByUserId.get(member.user_id) ?? null}
+                  />
+                  <div className="identity-copy">
+                    <p className="text-reset">{member.display_name ?? member.email ?? member.user_id}</p>
+                    <p className="caption">{member.email ?? member.user_id}</p>
+                  </div>
+                </div>
                 {canAdmin ? (
                   <select
                     className="select"
@@ -349,6 +380,73 @@ export function SettingsPage(): JSX.Element {
 
       <Card data-ui="settings-account-card">
         <h2 className="section-title">Account</h2>
+        <div className="list-item">
+          <p className="caption">Profile photo</p>
+          <div className="actions actions-spaced">
+            <Avatar
+              name={profile.display_name || "Member"}
+              email={profile.email}
+              src={avatarByUserId.get(profile.id) ?? null}
+            />
+            <input
+              ref={avatarInputRef}
+              id="profile-avatar-file"
+              className="input sr-only"
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={async (event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                if (!file || !household) return;
+
+                setAvatarError(null);
+                try {
+                  validateAvatarFile(file);
+                } catch (error) {
+                  setAvatarError(error instanceof Error ? error.message : "Invalid profile photo.");
+                  return;
+                }
+
+                setAvatarBusy(true);
+                try {
+                  const updated = await uploadMyAvatar(file, household.id, profile.id);
+                  setProfile(updated);
+                  await refreshMembers();
+                  pushToast("Profile photo updated.");
+                } catch (error) {
+                  setAvatarError(error instanceof Error ? error.message : "Unable to upload profile photo.");
+                } finally {
+                  setAvatarBusy(false);
+                }
+              }}
+            />
+            <Button variant="secondary" disabled={avatarBusy} onClick={() => avatarInputRef.current?.click()}>
+              Upload photo
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={avatarBusy || !profile.avatar_path}
+              onClick={async () => {
+                if (!household) return;
+                setAvatarError(null);
+                setAvatarBusy(true);
+                try {
+                  const updated = await removeMyAvatar(household.id, profile.id, profile.avatar_path);
+                  setProfile(updated);
+                  await refreshMembers();
+                  pushToast("Profile photo removed.");
+                } catch (error) {
+                  setAvatarError(error instanceof Error ? error.message : "Unable to remove profile photo.");
+                } finally {
+                  setAvatarBusy(false);
+                }
+              }}
+            >
+              Remove photo
+            </Button>
+          </div>
+          {avatarError ? <p className="caption error-text">{avatarError}</p> : null}
+        </div>
         <div className="list">
           <div className="list-item">
             <p className="caption">Name</p>

@@ -7,13 +7,15 @@ export function PinnedSection({
   onOpen,
   onPinToggle,
   canPin,
-  getAuthorLabel
+  getAuthorLabel,
+  getAuthorAvatarUrl
 }: {
   items: FeedItem[];
   onOpen: (item: FeedItem) => void;
   onPinToggle: (item: FeedItem) => void;
   canPin: boolean;
   getAuthorLabel?: (userId: string) => string;
+  getAuthorAvatarUrl?: (userId: string) => string | null;
 }): JSX.Element | null {
   if (items.length === 0) return null;
 
@@ -30,6 +32,7 @@ export function PinnedSection({
             onPinToggle={onPinToggle}
             canPin={canPin}
             authorLabel={getAuthorLabel?.(item.author_user_id)}
+            authorAvatarUrl={getAuthorAvatarUrl?.(item.author_user_id) ?? null}
           />
         ))}
       </div>

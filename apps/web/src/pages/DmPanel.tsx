@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { EmptyState } from "../components/common/EmptyState";
+import { Avatar } from "../components/common/Avatar";
 import { useAppStore } from "../state/appStore";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { createDmThread, listMessages, listThreads, sendMessage } from "../services/dmApi";
@@ -10,6 +11,7 @@ import type { DmMessage, DmThread } from "../types/domain";
 import { formatDateTime } from "../utils/dates";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 export function DmPanel(): JSX.Element {
   const [searchParams] = useSearchParams();
@@ -51,6 +53,26 @@ export function DmPanel(): JSX.Element {
     if (profile) map.set(profile.id, profile.display_name || profile.email || "You");
     return map;
   }, [members, profile]);
+  const identityRows = useMemo(
+    () => [
+      ...members.map((member) => ({
+        user_id: member.user_id,
+        avatar_path: member.avatar_path ?? null,
+        avatar_url: member.avatar_url ?? null
+      })),
+      ...(profile
+        ? [
+            {
+              user_id: profile.id,
+              avatar_path: profile.avatar_path ?? null,
+              avatar_url: profile.avatar_url ?? null
+            }
+          ]
+        : [])
+    ],
+    [members, profile]
+  );
+  const avatarById = useAvatarUrls(identityRows);
 
   if (!enabled || !household || !contextType || !contextId || !profile) {
     return <EmptyState title="Context chat unavailable" body="Direct messaging is disabled for your role or this household." />;
@@ -116,9 +138,16 @@ export function DmPanel(): JSX.Element {
             return (
               <article key={message.id} className={`chat-bubble ${mine ? "mine" : ""}`.trim()} data-ui="dm-message-item">
                 <p className="text-reset">{message.body}</p>
-                <p className="caption">
-                  {memberById.get(message.author_user_id) ?? message.author_user_id} · {formatDateTime(message.created_at)}
-                </p>
+                <div className="identity-row">
+                  <Avatar
+                    size="sm"
+                    name={memberById.get(message.author_user_id) ?? message.author_user_id}
+                    src={avatarById.get(message.author_user_id) ?? null}
+                  />
+                  <p className="caption">
+                    {memberById.get(message.author_user_id) ?? message.author_user_id} · {formatDateTime(message.created_at)}
+                  </p>
+                </div>
               </article>
             );
           })}

@@ -43,12 +43,17 @@ async function invokeWithAuth<T, TBody extends object = object>(name: string, bo
 }
 
 export async function ensureProfile(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): Promise<UserProfile> {
+  const metadataAvatar =
+    (user.user_metadata?.avatar_url as string | undefined) ??
+    (user.user_metadata?.picture as string | undefined) ??
+    null;
   const { data, error } = await supabase
     .from("profiles")
     .upsert({
       id: user.id,
       email: user.email ?? "",
-      display_name: (user.user_metadata?.display_name as string | undefined) ?? user.email?.split("@")[0] ?? "Member"
+      display_name: (user.user_metadata?.display_name as string | undefined) ?? user.email?.split("@")[0] ?? "Member",
+      ...(metadataAvatar ? { avatar_url: metadataAvatar } : {})
     })
     .select("*")
     .single();
@@ -78,7 +83,7 @@ export async function listMyHouseholds(): Promise<Array<Household & { role: Hous
 export async function getHouseholdMembers(householdId: string): Promise<HouseholdMember[]> {
   const { data, error } = await supabase
     .from("household_members")
-    .select("household_id,user_id,role,created_at,profiles:user_id(display_name,email)")
+    .select("household_id,user_id,role,created_at,profiles:user_id(display_name,email,avatar_url,avatar_path)")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true });
 
@@ -90,7 +95,9 @@ export async function getHouseholdMembers(householdId: string): Promise<Househol
     role: row.role as HouseholdMember["role"],
     created_at: row.created_at as string,
     display_name: (row.profiles as { display_name?: string } | null)?.display_name,
-    email: (row.profiles as { email?: string } | null)?.email
+    email: (row.profiles as { email?: string } | null)?.email,
+    avatar_url: (row.profiles as { avatar_url?: string | null } | null)?.avatar_url ?? null,
+    avatar_path: (row.profiles as { avatar_path?: string | null } | null)?.avatar_path ?? null
   }));
 }
 
