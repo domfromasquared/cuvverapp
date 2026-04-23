@@ -495,10 +495,30 @@
 }
 
 .status-denied,
-.status-rejected {
+.status-rejected,
+.status-declined {
   color: var(--color-error);
   border-color: rgba(182, 94, 98, 0.35);
   background: rgba(182, 94, 98, 0.1);
+}
+
+.status-accepted {
+  color: var(--color-success);
+  border-color: rgba(63, 95, 83, 0.32);
+  background: rgba(63, 95, 83, 0.1);
+}
+
+.status-changed {
+  color: #8a5a00;
+  border-color: rgba(200, 120, 0, 0.4);
+  background: rgba(200, 120, 0, 0.12);
+}
+
+.status-cancelled {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+  text-decoration: line-through;
 }
 
 .empty {
