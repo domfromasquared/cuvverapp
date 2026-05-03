@@ -100,7 +100,7 @@ begin
 end;
 $$;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   household_id uuid,
   display_name text not null default '',
@@ -109,7 +109,7 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
-create table public.households (
+create table if not exists public.households (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   timezone text not null default 'America/Los_Angeles',
@@ -132,15 +132,24 @@ create table public.households (
   updated_at timestamptz not null default now()
 );
 
+drop trigger if exists trg_households_updated_at on public.households;
 create trigger trg_households_updated_at
 before update on public.households
 for each row execute function public.set_updated_at();
 
-alter table public.profiles
-  add constraint profiles_household_fkey
-  foreign key (household_id) references public.households(id) on delete set null;
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_household_fkey'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_household_fkey
+      foreign key (household_id) references public.households(id) on delete set null;
+  end if;
+end $$;
 
-create table public.household_members (
+create table if not exists public.household_members (
   household_id uuid not null references public.households(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   role public.household_role not null,
@@ -148,7 +157,7 @@ create table public.household_members (
   primary key (household_id, user_id)
 );
 
-create table public.invites (
+create table if not exists public.invites (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   email text not null,
@@ -159,7 +168,7 @@ create table public.invites (
   created_at timestamptz not null default now()
 );
 
-create table public.dependents (
+create table if not exists public.dependents (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   display_name text not null,
@@ -168,7 +177,7 @@ create table public.dependents (
   created_at timestamptz not null default now()
 );
 
-create table public.shifts (
+create table if not exists public.shifts (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   caregiver_user_id uuid references public.profiles(id) on delete set null,
@@ -182,11 +191,12 @@ create table public.shifts (
   check (end_datetime > start_datetime)
 );
 
+drop trigger if exists trg_shifts_updated_at on public.shifts;
 create trigger trg_shifts_updated_at
 before update on public.shifts
 for each row execute function public.set_updated_at();
 
-create table public.pto_requests (
+create table if not exists public.pto_requests (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -201,7 +211,7 @@ create table public.pto_requests (
   check (end_date >= start_date)
 );
 
-create table public.time_entries (
+create table if not exists public.time_entries (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   shift_id uuid references public.shifts(id) on delete set null,
@@ -212,7 +222,7 @@ create table public.time_entries (
   created_at timestamptz not null default now()
 );
 
-create table public.feed_items (
+create table if not exists public.feed_items (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   type public.feed_item_type not null,
@@ -227,11 +237,11 @@ create table public.feed_items (
   created_at timestamptz not null default now()
 );
 
-create unique index uq_coverage_brief_per_household
+create unique index if not exists uq_coverage_brief_per_household
 on public.feed_items (household_id)
 where type = 'coverage_brief';
 
-create table public.attachments (
+create table if not exists public.attachments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   feed_item_id uuid not null references public.feed_items(id) on delete cascade,
@@ -241,7 +251,7 @@ create table public.attachments (
   created_at timestamptz not null default now()
 );
 
-create table public.comments (
+create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   feed_item_id uuid not null references public.feed_items(id) on delete cascade,
@@ -250,7 +260,7 @@ create table public.comments (
   created_at timestamptz not null default now()
 );
 
-create table public.acknowledgements (
+create table if not exists public.acknowledgements (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   feed_item_id uuid not null references public.feed_items(id) on delete cascade,
@@ -260,7 +270,7 @@ create table public.acknowledgements (
   unique (feed_item_id, author_user_id, kind)
 );
 
-create table public.read_receipts (
+create table if not exists public.read_receipts (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   feed_item_id uuid not null references public.feed_items(id) on delete cascade,
@@ -269,7 +279,7 @@ create table public.read_receipts (
   unique (feed_item_id, user_id)
 );
 
-create table public.notifications (
+create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -281,7 +291,7 @@ create table public.notifications (
   created_at timestamptz not null default now()
 );
 
-create table public.documents (
+create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   dependent_id uuid references public.dependents(id) on delete set null,
@@ -295,7 +305,7 @@ create table public.documents (
   created_at timestamptz not null default now()
 );
 
-create table public.dm_threads (
+create table if not exists public.dm_threads (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   context_type public.dm_context_type not null,
@@ -304,14 +314,14 @@ create table public.dm_threads (
   created_by_user_id uuid not null references public.profiles(id) on delete cascade
 );
 
-create table public.dm_thread_participants (
+create table if not exists public.dm_thread_participants (
   thread_id uuid not null references public.dm_threads(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (thread_id, user_id)
 );
 
-create table public.dm_messages (
+create table if not exists public.dm_messages (
   id uuid primary key default gen_random_uuid(),
   thread_id uuid not null references public.dm_threads(id) on delete cascade,
   author_user_id uuid not null references public.profiles(id) on delete cascade,
@@ -319,13 +329,13 @@ create table public.dm_messages (
   created_at timestamptz not null default now()
 );
 
-create index idx_members_user on public.household_members(user_id);
-create index idx_shifts_household_start on public.shifts(household_id, start_datetime);
-create index idx_pto_household_created on public.pto_requests(household_id, created_at desc);
-create index idx_feed_household_created on public.feed_items(household_id, created_at desc);
-create index idx_notifications_user_created on public.notifications(user_id, created_at desc);
-create index idx_docs_household_created on public.documents(household_id, created_at desc);
-create index idx_dm_threads_context on public.dm_threads(household_id, context_type, context_id);
+create index if not exists idx_members_user on public.household_members(user_id);
+create index if not exists idx_shifts_household_start on public.shifts(household_id, start_datetime);
+create index if not exists idx_pto_household_created on public.pto_requests(household_id, created_at desc);
+create index if not exists idx_feed_household_created on public.feed_items(household_id, created_at desc);
+create index if not exists idx_notifications_user_created on public.notifications(user_id, created_at desc);
+create index if not exists idx_docs_household_created on public.documents(household_id, created_at desc);
+create index if not exists idx_dm_threads_context on public.dm_threads(household_id, context_type, context_id);
 
 create or replace function public.handle_new_user()
 returns trigger

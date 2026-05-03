@@ -2,15 +2,23 @@
 -- Adds shift assignment acknowledgment workflow.
 -- Non-destructive. Backfills existing shifts as auto-accepted.
 
-create type public.assignment_status as enum (
-  'pending',    -- caregiver hasn't responded yet
-  'accepted',   -- caregiver confirmed the shift
-  'declined',   -- caregiver rejected the shift
-  'changed',    -- admin edited shift after acceptance; needs re-confirm
-  'cancelled'   -- admin cancelled the assignment
-);
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'assignment_status'
+  ) then
+    create type public.assignment_status as enum (
+      'pending',    -- caregiver hasn't responded yet
+      'accepted',   -- caregiver confirmed the shift
+      'declined',   -- caregiver rejected the shift
+      'changed',    -- admin edited shift after acceptance; needs re-confirm
+      'cancelled'   -- admin cancelled the assignment
+    );
+  end if;
+end $$;
 
-create table public.shift_assignments (
+create table if not exists public.shift_assignments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   shift_id uuid not null references public.shifts(id) on delete cascade,
@@ -29,39 +37,44 @@ create table public.shift_assignments (
   unique (shift_id, caregiver_user_id)
 );
 
+drop trigger if exists trg_shift_assignments_updated_at on public.shift_assignments;
 create trigger trg_shift_assignments_updated_at
 before update on public.shift_assignments
 for each row execute function public.set_updated_at();
 
-create index idx_shift_assignments_caregiver_status
+create index if not exists idx_shift_assignments_caregiver_status
   on public.shift_assignments(caregiver_user_id, status);
-create index idx_shift_assignments_household_status
+create index if not exists idx_shift_assignments_household_status
   on public.shift_assignments(household_id, status);
 
 alter table public.shift_assignments enable row level security;
 
+drop policy if exists "assignments_read_member" on public.shift_assignments;
 create policy "assignments_read_member"
   on public.shift_assignments
   for select
   using (public.is_household_member(household_id));
 
+drop policy if exists "assignments_insert_admin" on public.shift_assignments;
 create policy "assignments_insert_admin"
   on public.shift_assignments
   for insert
   with check (public.is_household_admin(household_id));
 
+drop policy if exists "assignments_delete_admin" on public.shift_assignments;
 create policy "assignments_delete_admin"
   on public.shift_assignments
   for delete
   using (public.is_household_admin(household_id));
 
+drop policy if exists "assignments_update_admin" on public.shift_assignments;
 create policy "assignments_update_admin"
   on public.shift_assignments
   for update
   using (public.is_household_admin(household_id))
   with check (public.is_household_admin(household_id));
 
--- Caregivers can update only their own row, only to accepted/declined.
+drop policy if exists "assignments_update_caregiver_own" on public.shift_assignments;
 create policy "assignments_update_caregiver_own"
   on public.shift_assignments
   for update
