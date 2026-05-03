@@ -3,14 +3,15 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
+import { AssignmentBadge } from "../components/schedule/AssignmentBadge";
 import { useAppStore } from "../state/appStore";
-import { listShifts, createShift, listTimeEntries, clockIn, clockOut, approveTimeEntry } from "../services/scheduleApi";
+import { listShifts, createShift, assignShift, listTimeEntries, clockIn, clockOut, approveTimeEntry, listAssignmentsForShift } from "../services/scheduleApi";
 import { createSystemEvent } from "../services/feedApi";
 import { formatDateTime } from "../utils/dates";
 import { isValidRange } from "../utils/validation";
 import { PermissionHelper } from "../permissions/permissionHelper";
 import { buildRecurrenceRule, toggleWeekday, type RecurrencePreset, type WeekdayCode, WEEKDAY_CODES } from "../utils/recurrence";
-import type { Shift, TimeEntry } from "../types/domain";
+import type { Shift, ShiftAssignment, TimeEntry } from "../types/domain";
 import { useUi } from "../app/providers";
 import { debugBadge } from "../dev/uiDebug";
 
@@ -46,6 +47,7 @@ export function SchedulePage(): JSX.Element {
   const { household, profile, role, members } = useAppStore();
   const { pushToast } = useUi();
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [assignmentsByShift, setAssignmentsByShift] = useState<Map<string, ShiftAssignment>>(new Map());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>("none");
@@ -65,6 +67,17 @@ export function SchedulePage(): JSX.Element {
       ]);
       setShifts(nextShifts);
       setTimeEntries(nextEntries);
+
+      // Load the most recent assignment for each shift so we can show status badges.
+      const assignmentMap = new Map<string, ShiftAssignment>();
+      await Promise.all(
+        nextShifts.map(async (shift) => {
+          const rows = await listAssignmentsForShift(shift.id);
+          if (rows.length > 0) assignmentMap.set(shift.id, rows[0]);
+        })
+      );
+      setAssignmentsByShift(assignmentMap);
+
       setLoading(false);
     })();
   }, [household, role]);
@@ -93,7 +106,8 @@ export function SchedulePage(): JSX.Element {
   const canManageSchedule = PermissionHelper.canManageSchedule(role);
   const canTrackTime = PermissionHelper.canTrackTime(role);
   const canApproveTimeEntries = PermissionHelper.canApproveTimeEntries(role);
-  const caregiverOptions = members.filter((member) => member.role === "caregiver" || member.role === "editor" || member.role === "owner");
+  // Caregiver picker shows only caregiver-role members for the assignment workflow.
+  const caregiverOptions = members.filter((member) => member.role === "caregiver");
   const now = Date.now();
 
   const activeMyEntry = timeEntries.find((entry) => entry.user_id === profile.id && entry.status === "open") ?? null;
@@ -136,25 +150,31 @@ export function SchedulePage(): JSX.Element {
           <Card key={day} data-ui="schedule-day-card">
             <p className="kicker">{day}</p>
             <div className="timeline-list">
-              {dayShifts.map((shift) => (
-                <article key={shift.id} className="timeline-row" data-ui="schedule-shift-row">
-                  <div className="timeline-main">
-                    <h3 className="title-tight">{shift.title}</h3>
-                    <p className="caption">
-                      {formatDateTime(shift.start_datetime)} - {formatDateTime(shift.end_datetime)}
-                    </p>
-                    <div className="chip-row">
-                      <span className="badge">{formatRecurrence(shift.recurrence_rule)}</span>
-                      <span className="badge">
-                        {shift.caregiver_user_id ? memberNameById.get(shift.caregiver_user_id) ?? "Assigned" : "Unassigned"}
-                      </span>
+              {dayShifts.map((shift) => {
+                const assignment = assignmentsByShift.get(shift.id);
+                return (
+                  <article key={shift.id} className="timeline-row" data-ui="schedule-shift-row">
+                    <div className="timeline-main">
+                      <div className="chip-row">
+                        <h3 className="title-tight">{shift.title}</h3>
+                        {assignment ? <AssignmentBadge status={assignment.status} /> : null}
+                      </div>
+                      <p className="caption">
+                        {formatDateTime(shift.start_datetime)} - {formatDateTime(shift.end_datetime)}
+                      </p>
+                      <div className="chip-row">
+                        <span className="badge">{formatRecurrence(shift.recurrence_rule)}</span>
+                        <span className="badge">
+                          {shift.caregiver_user_id ? memberNameById.get(shift.caregiver_user_id) ?? "Assigned" : "Unassigned"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <Link className="btn ghost" to={`/app/shift/${shift.id}`}>
-                    Open
-                  </Link>
-                </article>
-              ))}
+                    <Link className="btn ghost" to={`/app/shift/${shift.id}`}>
+                      Open
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
           </Card>
         ))}
@@ -188,15 +208,21 @@ export function SchedulePage(): JSX.Element {
               });
 
               try {
+                // Create the shift without setting caregiver_user_id directly.
+                // The assignShift edge function sets it after creating the assignment row.
                 const shift = await createShift({
                   household_id: household.id,
-                  caregiver_user_id: caregiverUserId,
+                  caregiver_user_id: null,
                   title,
                   start_datetime: new Date(start).toISOString(),
                   end_datetime: new Date(end).toISOString(),
                   recurrence_rule: recurrenceRule,
                   notes: notes || null
                 });
+
+                if (caregiverUserId) {
+                  await assignShift(household.id, shift.id, caregiverUserId);
+                }
 
                 await createSystemEvent({
                   household_id: household.id,
@@ -207,8 +233,16 @@ export function SchedulePage(): JSX.Element {
                   is_critical: true
                 });
 
-                const refreshed = await listShifts(household.id);
-                setShifts(refreshed);
+                const refreshedShifts = await listShifts(household.id);
+                setShifts(refreshedShifts);
+
+                const assignmentMap = new Map<string, ShiftAssignment>(assignmentsByShift);
+                if (caregiverUserId) {
+                  const rows = await listAssignmentsForShift(shift.id);
+                  if (rows.length > 0) assignmentMap.set(shift.id, rows[0]);
+                }
+                setAssignmentsByShift(assignmentMap);
+
                 pushToast("Shift created.");
                 form.reset();
                 setRecurrencePreset("none");

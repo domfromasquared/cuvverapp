@@ -1,14 +1,94 @@
 create extension if not exists pgcrypto;
 
-create type public.household_role as enum ('owner', 'editor', 'caregiver', 'viewer');
-create type public.feed_item_type as enum ('system_event', 'care_update', 'coverage_brief', 'protocol');
-create type public.pto_status as enum ('pending', 'approved', 'denied');
-create type public.pto_type as enum ('vacation', 'sick', 'personal', 'other');
-create type public.ack_kind as enum ('seen', 'thanks', 'love', 'got_it');
-create type public.time_entry_status as enum ('open', 'submitted', 'approved', 'rejected');
-create type public.attachment_type as enum ('photo', 'video', 'document');
-create type public.dependent_type as enum ('child', 'senior', 'other');
-create type public.dm_context_type as enum ('shift', 'pto', 'feed_item');
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'household_role'
+  ) then
+    create type public.household_role as enum ('owner', 'editor', 'caregiver', 'viewer');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'feed_item_type'
+  ) then
+    create type public.feed_item_type as enum ('system_event', 'care_update', 'coverage_brief', 'protocol');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'pto_status'
+  ) then
+    create type public.pto_status as enum ('pending', 'approved', 'denied');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'pto_type'
+  ) then
+    create type public.pto_type as enum ('vacation', 'sick', 'personal', 'other');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'ack_kind'
+  ) then
+    create type public.ack_kind as enum ('seen', 'thanks', 'love', 'got_it');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'time_entry_status'
+  ) then
+    create type public.time_entry_status as enum ('open', 'submitted', 'approved', 'rejected');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'attachment_type'
+  ) then
+    create type public.attachment_type as enum ('photo', 'video', 'document');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'dependent_type'
+  ) then
+    create type public.dependent_type as enum ('child', 'senior', 'other');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'dm_context_type'
+  ) then
+    create type public.dm_context_type as enum ('shift', 'pto', 'feed_item');
+  end if;
+end $$;
 
 create or replace function public.set_updated_at()
 returns trigger

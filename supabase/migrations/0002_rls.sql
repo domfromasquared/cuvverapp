@@ -121,6 +121,7 @@ exception when undefined_table then null; end $$;
 
 drop policy if exists "profiles_read_own" on public.profiles;
 drop policy if exists "profiles_upsert_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
 
 create policy "profiles_read_own"
 on public.profiles

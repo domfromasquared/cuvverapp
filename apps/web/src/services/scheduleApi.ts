@@ -1,15 +1,19 @@
 import { supabase } from "../lib/supabaseClient";
-import type { Shift, TimeEntry } from "../types/domain";
+import type { Shift, ShiftAssignment, TimeEntry } from "../types/domain";
 
 function assertNoError(error: unknown): void {
   if (error) throw error;
 }
 
 export async function listShifts(householdId: string): Promise<Shift[]> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const thirtyDaysAhead = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from("shifts")
     .select("*")
     .eq("household_id", householdId)
+    .gte("start_datetime", thirtyDaysAgo)
+    .lte("start_datetime", thirtyDaysAhead)
     .order("start_datetime", { ascending: true });
 
   assertNoError(error);
@@ -72,4 +76,59 @@ export async function approveTimeEntry(entryId: string): Promise<TimeEntry> {
   const { data, error } = await supabase.from("time_entries").update({ status: "approved" }).eq("id", entryId).select("*").single();
   assertNoError(error);
   return data as TimeEntry;
+}
+
+export async function listAssignmentsForShift(shiftId: string): Promise<ShiftAssignment[]> {
+  const { data, error } = await supabase
+    .from("shift_assignments")
+    .select("*")
+    .eq("shift_id", shiftId)
+    .order("assigned_at", { ascending: false });
+  assertNoError(error);
+  return (data ?? []) as ShiftAssignment[];
+}
+
+export async function listMyPendingAssignments(
+  householdId: string,
+  userId: string
+): Promise<ShiftAssignment[]> {
+  const { data, error } = await supabase
+    .from("shift_assignments")
+    .select("*")
+    .eq("household_id", householdId)
+    .eq("caregiver_user_id", userId)
+    .in("status", ["pending", "changed"])
+    .order("snapshot_start", { ascending: true });
+  assertNoError(error);
+  return (data ?? []) as ShiftAssignment[];
+}
+
+async function invokeEdgeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T>(name, { body });
+  if (error) throw error;
+  return data as T;
+}
+
+export async function assignShift(
+  householdId: string,
+  shiftId: string,
+  caregiverUserId: string
+): Promise<{ ok: boolean; assignment_id: string }> {
+  return invokeEdgeFunction("assign-shift", {
+    household_id: householdId,
+    shift_id: shiftId,
+    caregiver_user_id: caregiverUserId,
+  });
+}
+
+export async function respondToAssignment(
+  assignmentId: string,
+  response: "accepted" | "declined",
+  note?: string
+): Promise<{ ok: boolean; status: string }> {
+  return invokeEdgeFunction("respond-to-assignment", {
+    assignment_id: assignmentId,
+    response,
+    note,
+  });
 }

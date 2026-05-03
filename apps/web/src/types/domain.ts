@@ -198,3 +198,22 @@ export interface DmMessage {
   body: string;
   created_at: string;
 }
+
+export type AssignmentStatus = "pending" | "accepted" | "declined" | "changed" | "cancelled";
+
+export interface ShiftAssignment {
+  id: string;
+  household_id: string;
+  shift_id: string;
+  caregiver_user_id: string;
+  status: AssignmentStatus;
+  assigned_by_user_id: string;
+  assigned_at: string;
+  responded_at: string | null;
+  response_note: string | null;
+  snapshot_start: string;
+  snapshot_end: string;
+  snapshot_title: string;
+  created_at: string;
+  updated_at: string;
+}
