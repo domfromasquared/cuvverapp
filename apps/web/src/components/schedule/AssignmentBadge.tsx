@@ -1,11 +1,16 @@
 import type { AssignmentStatus } from "../../types/domain";
 
+interface AssignmentBadgeProps {
+  status: AssignmentStatus;
+  className?: string;
+}
+
 const STATUS_LABEL: Record<AssignmentStatus, string> = {
   pending: "Pending",
   accepted: "Accepted",
   declined: "Declined",
   changed: "Needs re-confirm",
-  cancelled: "Cancelled",
+  cancelled: "Cancelled"
 };
 
 const STATUS_CLASS: Record<AssignmentStatus, string> = {
@@ -13,16 +18,14 @@ const STATUS_CLASS: Record<AssignmentStatus, string> = {
   accepted: "status-approved",
   declined: "status-rejected",
   changed: "status-submitted",
-  cancelled: "status-rejected",
+  cancelled: "status-rejected"
 };
 
-interface Props {
-  status: AssignmentStatus;
-}
-
-export function AssignmentBadge({ status }: Props): JSX.Element {
+export function AssignmentBadge({ status, className }: AssignmentBadgeProps): JSX.Element {
+  const classes = ["status-chip", STATUS_CLASS[status]];
+  if (className) classes.push(className);
   return (
-    <span className={`status-chip ${STATUS_CLASS[status]}`}>
+    <span className={classes.join(" ")} data-ui="assignment-badge" data-status={status}>
       {STATUS_LABEL[status]}
     </span>
   );

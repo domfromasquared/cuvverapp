@@ -1,19 +1,46 @@
 import { supabase } from "../lib/supabaseClient";
+import { getAccessToken } from "../auth/session";
 import type { Shift, ShiftAssignment, TimeEntry } from "../types/domain";
 
 function assertNoError(error: unknown): void {
   if (error) throw error;
 }
 
-export async function listShifts(householdId: string): Promise<Shift[]> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const thirtyDaysAhead = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+async function invokeWithAuth<T, TBody extends object = object>(name: string, body: TBody): Promise<T> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Not authenticated");
+  const { data, error } = await supabase.functions.invoke(name, {
+    body,
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assertNoError(error);
+  return data as T;
+}
+
+export const DEFAULT_SCHEDULE_WINDOW_DAYS = 30;
+
+export interface ScheduleWindow {
+  pastDays?: number;
+  futureDays?: number;
+}
+
+function windowBounds(window?: ScheduleWindow): { from: string; to: string } {
+  const pastDays = window?.pastDays ?? DEFAULT_SCHEDULE_WINDOW_DAYS;
+  const futureDays = window?.futureDays ?? DEFAULT_SCHEDULE_WINDOW_DAYS;
+  const now = Date.now();
+  const from = new Date(now - pastDays * 24 * 60 * 60 * 1000).toISOString();
+  const to = new Date(now + futureDays * 24 * 60 * 60 * 1000).toISOString();
+  return { from, to };
+}
+
+export async function listShifts(householdId: string, window?: ScheduleWindow): Promise<Shift[]> {
+  const { from, to } = windowBounds(window);
   const { data, error } = await supabase
     .from("shifts")
     .select("*")
     .eq("household_id", householdId)
-    .gte("start_datetime", thirtyDaysAgo)
-    .lte("start_datetime", thirtyDaysAhead)
+    .gte("start_datetime", from)
+    .lte("start_datetime", to)
     .order("start_datetime", { ascending: true });
 
   assertNoError(error);
@@ -78,12 +105,34 @@ export async function approveTimeEntry(entryId: string): Promise<TimeEntry> {
   return data as TimeEntry;
 }
 
+// =====================
+// Shift assignments
+// =====================
+
 export async function listAssignmentsForShift(shiftId: string): Promise<ShiftAssignment[]> {
   const { data, error } = await supabase
     .from("shift_assignments")
     .select("*")
     .eq("shift_id", shiftId)
     .order("assigned_at", { ascending: false });
+
+  assertNoError(error);
+  return (data ?? []) as ShiftAssignment[];
+}
+
+export async function listAssignmentsForHousehold(
+  householdId: string,
+  window?: ScheduleWindow
+): Promise<ShiftAssignment[]> {
+  const { from, to } = windowBounds(window);
+  const { data, error } = await supabase
+    .from("shift_assignments")
+    .select("*")
+    .eq("household_id", householdId)
+    .gte("snapshot_start", from)
+    .lte("snapshot_start", to)
+    .order("snapshot_start", { ascending: true });
+
   assertNoError(error);
   return (data ?? []) as ShiftAssignment[];
 }
@@ -99,14 +148,9 @@ export async function listMyPendingAssignments(
     .eq("caregiver_user_id", userId)
     .in("status", ["pending", "changed"])
     .order("snapshot_start", { ascending: true });
+
   assertNoError(error);
   return (data ?? []) as ShiftAssignment[];
-}
-
-async function invokeEdgeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke<T>(name, { body });
-  if (error) throw error;
-  return data as T;
 }
 
 export async function assignShift(
@@ -114,10 +158,10 @@ export async function assignShift(
   shiftId: string,
   caregiverUserId: string
 ): Promise<{ ok: boolean; assignment_id: string }> {
-  return invokeEdgeFunction("assign-shift", {
+  return invokeWithAuth("assign-shift", {
     household_id: householdId,
     shift_id: shiftId,
-    caregiver_user_id: caregiverUserId,
+    caregiver_user_id: caregiverUserId
   });
 }
 
@@ -125,10 +169,10 @@ export async function respondToAssignment(
   assignmentId: string,
   response: "accepted" | "declined",
   note?: string
-): Promise<{ ok: boolean; status: string }> {
-  return invokeEdgeFunction("respond-to-assignment", {
+): Promise<{ ok: boolean; status: "accepted" | "declined" }> {
+  return invokeWithAuth("respond-to-assignment", {
     assignment_id: assignmentId,
     response,
-    note,
+    note
   });
 }

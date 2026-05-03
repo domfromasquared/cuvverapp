@@ -5,7 +5,7 @@ import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
 import { AssignmentBadge } from "../components/schedule/AssignmentBadge";
 import { useAppStore } from "../state/appStore";
-import { listShifts, createShift, assignShift, listTimeEntries, clockIn, clockOut, approveTimeEntry, listAssignmentsForShift } from "../services/scheduleApi";
+import { listShifts, createShift, assignShift, listAssignmentsForHousehold, listTimeEntries, clockIn, clockOut, approveTimeEntry } from "../services/scheduleApi";
 import { createSystemEvent } from "../services/feedApi";
 import { formatDateTime } from "../utils/dates";
 import { isValidRange } from "../utils/validation";
@@ -68,14 +68,16 @@ export function SchedulePage(): JSX.Element {
       setShifts(nextShifts);
       setTimeEntries(nextEntries);
 
-      // Load the most recent assignment for each shift so we can show status badges.
+      // Single bulk query for all assignments in the window; avoids N round-trips.
+      const allAssignments = await listAssignmentsForHousehold(household.id);
       const assignmentMap = new Map<string, ShiftAssignment>();
-      await Promise.all(
-        nextShifts.map(async (shift) => {
-          const rows = await listAssignmentsForShift(shift.id);
-          if (rows.length > 0) assignmentMap.set(shift.id, rows[0]);
-        })
-      );
+      allAssignments.forEach((a) => {
+        // Keep only the most-recent assignment per shift (list is sorted by snapshot_start asc,
+        // so we overwrite earlier entries with later ones for same shift).
+        if (!assignmentMap.has(a.shift_id) || a.assigned_at > (assignmentMap.get(a.shift_id)!.assigned_at)) {
+          assignmentMap.set(a.shift_id, a);
+        }
+      });
       setAssignmentsByShift(assignmentMap);
 
       setLoading(false);
@@ -233,14 +235,17 @@ export function SchedulePage(): JSX.Element {
                   is_critical: true
                 });
 
-                const refreshedShifts = await listShifts(household.id);
+                const [refreshedShifts, allAssignments] = await Promise.all([
+                  listShifts(household.id),
+                  listAssignmentsForHousehold(household.id)
+                ]);
                 setShifts(refreshedShifts);
-
-                const assignmentMap = new Map<string, ShiftAssignment>(assignmentsByShift);
-                if (caregiverUserId) {
-                  const rows = await listAssignmentsForShift(shift.id);
-                  if (rows.length > 0) assignmentMap.set(shift.id, rows[0]);
-                }
+                const assignmentMap = new Map<string, ShiftAssignment>();
+                allAssignments.forEach((a) => {
+                  if (!assignmentMap.has(a.shift_id) || a.assigned_at > (assignmentMap.get(a.shift_id)!.assigned_at)) {
+                    assignmentMap.set(a.shift_id, a);
+                  }
+                });
                 setAssignmentsByShift(assignmentMap);
 
                 pushToast("Shift created.");

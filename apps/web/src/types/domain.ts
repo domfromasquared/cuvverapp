@@ -12,6 +12,8 @@ export type AcknowledgementKind = "seen" | "thanks" | "love" | "got_it";
 
 export type DmContextType = "shift" | "pto" | "feed_item";
 
+export type AssignmentStatus = "pending" | "accepted" | "declined" | "changed" | "cancelled";
+
 export interface AdminControls {
   caregivers_can_post_care_updates: boolean;
   caregivers_can_upload_attachments: boolean;
@@ -76,6 +78,23 @@ export interface Shift {
   end_datetime: string;
   recurrence_rule: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShiftAssignment {
+  id: string;
+  household_id: string;
+  shift_id: string;
+  caregiver_user_id: string;
+  status: AssignmentStatus;
+  assigned_by_user_id: string;
+  assigned_at: string;
+  responded_at: string | null;
+  response_note: string | null;
+  snapshot_start: string;
+  snapshot_end: string;
+  snapshot_title: string;
   created_at: string;
   updated_at: string;
 }
@@ -199,21 +218,3 @@ export interface DmMessage {
   created_at: string;
 }
 
-export type AssignmentStatus = "pending" | "accepted" | "declined" | "changed" | "cancelled";
-
-export interface ShiftAssignment {
-  id: string;
-  household_id: string;
-  shift_id: string;
-  caregiver_user_id: string;
-  status: AssignmentStatus;
-  assigned_by_user_id: string;
-  assigned_at: string;
-  responded_at: string | null;
-  response_note: string | null;
-  snapshot_start: string;
-  snapshot_end: string;
-  snapshot_title: string;
-  created_at: string;
-  updated_at: string;
-}

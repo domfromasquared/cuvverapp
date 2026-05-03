@@ -22,6 +22,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "response must be 'accepted' or 'declined'" }, 400);
   }
 
+  const note = payload.note?.trim() || null;
+
+  // Decline requires a note so the admin knows why. Accept allows an optional note.
+  if (payload.response === "declined" && !note) {
+    return jsonResponse({ error: "A note is required when declining a shift." }, 400);
+  }
+
+  // Load the assignment and verify the caller owns it.
   const { data: assignment, error: loadErr } = await auth.adminClient
     .from("shift_assignments")
     .select("id, household_id, shift_id, caregiver_user_id, assigned_by_user_id, status, snapshot_title")
@@ -34,45 +42,65 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Not your assignment" }, 403);
   }
   if (!["pending", "changed"].includes(assignment.status)) {
-    return jsonResponse({ error: `Cannot respond to assignment in status '${assignment.status}'` }, 400);
+    return jsonResponse(
+      { error: `Cannot respond to assignment in status '${assignment.status}'` },
+      400
+    );
   }
 
+  // Update the assignment.
   const { error: updateErr } = await auth.adminClient
     .from("shift_assignments")
     .update({
       status: payload.response,
       responded_at: new Date().toISOString(),
-      response_note: payload.note?.trim() || null,
+      response_note: note
     })
     .eq("id", assignment.id);
 
   if (updateErr) return jsonResponse({ error: updateErr.message }, 400);
 
-  const responderProfile = await auth.adminClient
+  // Look up the responder's display name for the notification + feed body.
+  const { data: responderProfile } = await auth.adminClient
     .from("profiles")
     .select("display_name")
     .eq("id", auth.userId)
     .maybeSingle();
-  const responderName = responderProfile.data?.display_name || "A caregiver";
+  const responderName = responderProfile?.display_name?.trim() || "A caregiver";
   const verb = payload.response === "accepted" ? "accepted" : "declined";
 
-  await auth.adminClient.from("notifications").insert({
-    household_id: assignment.household_id,
-    user_id: assignment.assigned_by_user_id,
-    type: "shift_response",
-    title: `${responderName} ${verb} a shift`,
-    body: `${assignment.snapshot_title}${payload.note ? ` — "${payload.note}"` : ""}`,
-    link: `/app/shift/${assignment.shift_id}`,
-  });
+  // Notify the admin who assigned the shift (skip if the caregiver and the
+  // assigning admin are the same person — e.g., an owner who assigned themselves
+  // and is now self-accepting).
+  if (assignment.assigned_by_user_id !== auth.userId) {
+    const notifBody = note
+      ? `${assignment.snapshot_title} — "${note}"`
+      : assignment.snapshot_title;
+
+    await auth.adminClient.from("notifications").insert({
+      household_id: assignment.household_id,
+      user_id: assignment.assigned_by_user_id,
+      type: "shift_response",
+      title: `${responderName} ${verb} a shift`,
+      body: notifBody,
+      link: `/app/shift/${assignment.shift_id}`
+    });
+  }
+
+  // System event into the household feed. Critical on decline so it surfaces
+  // above the fold; informational on accept.
+  const feedBody = note
+    ? `${responderName} ${verb} "${assignment.snapshot_title}". Note: ${note}`
+    : `${responderName} ${verb} "${assignment.snapshot_title}".`;
 
   await auth.adminClient.from("feed_items").insert({
     household_id: assignment.household_id,
     type: "system_event",
     author_user_id: auth.userId,
     title: `Shift ${verb}`,
-    body: `${responderName} ${verb} "${assignment.snapshot_title}"${payload.note ? `. Note: ${payload.note}` : ""}.`,
+    body: feedBody,
     shift_id: assignment.shift_id,
-    is_critical: payload.response === "declined",
+    is_critical: payload.response === "declined"
   });
 
   return jsonResponse({ ok: true, status: payload.response }, 200);
